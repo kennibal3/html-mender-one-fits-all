@@ -472,7 +472,7 @@
       elementLocked: "元素已锁定。",
       elementUnlocked: "元素已解锁。",
       imageReset: "图片已重置。",
-      layoutModeOn: "已进入版面微调模式。",
+      layoutModeOn: "已进入版面微调模式，可在空白处拖动框选多个对象。",
       layoutModeOff: "已退出版面微调模式。",
       advancedElementsVisible: "已显示高级结构元素。",
       advancedElementsHidden: "已隐藏高级结构元素。",
@@ -646,7 +646,7 @@
       elementLocked: "Element locked.",
       elementUnlocked: "Element unlocked.",
       imageReset: "Image reset.",
-      layoutModeOn: "Layout adjustment mode on.",
+      layoutModeOn: "Layout adjustment mode on. Drag on empty space to select multiple objects.",
       layoutModeOff: "Layout adjustment mode off.",
       advancedElementsVisible: "Advanced structure elements visible.",
       advancedElementsHidden: "Advanced structure elements hidden.",
@@ -1758,6 +1758,35 @@
       z-index: 1;
     }
 
+    .layout-marquee {
+      position: fixed;
+      border: 1.5px solid #1f6fff;
+      border-radius: 3px;
+      background: rgba(31, 111, 255, 0.12);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7) inset;
+      pointer-events: none;
+      z-index: 12;
+    }
+
+    .layout-group-selection {
+      position: fixed;
+      border: 2px solid #0f766e;
+      border-radius: 6px;
+      background: rgba(15, 118, 110, 0.025);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .layout-group-selection .box-label {
+      border-color: #0f766e;
+      background: #0f766e;
+    }
+
+    .layout-group-selection .layout-handle {
+      pointer-events: auto;
+    }
+
     .picker-layer {
       position: fixed;
       inset: 0;
@@ -2263,6 +2292,9 @@ async toggleBoxes() {
       }
 
       this.showBoxes = !this.showBoxes;
+      if (!this.showBoxes) {
+        this.finishLayoutMarquee?.(true);
+      }
       this.renderBoxes();
       this.refreshToolbar();
       return {
@@ -2863,7 +2895,15 @@ summaryText() {
     },
 
 handleDocumentPointerDown(event) {
-      if (!this.active || !this.selectedId) {
+      if (!this.active) {
+        return;
+      }
+
+      if (this.startLayoutMarquee?.(event)) {
+        return;
+      }
+
+      if (!this.selectedId) {
         return;
       }
 
@@ -3351,6 +3391,7 @@ installUi() {
     },
 
 removeUi() {
+      this.finishLayoutMarquee?.(true);
       this.host?.remove();
       this.host = null;
       this.shadow = null;
@@ -3698,7 +3739,8 @@ renderBoxes() {
       const boxes = entries.map(({ item, rect, selected, editing, overflow }) => (
         this.boxTemplate(item, rect, selected, editing, overflow)
       ));
-      this.layer.innerHTML = boxes.join("");
+      const groupSelection = this.layoutGroupSelectionTemplate?.() || "";
+      this.layer.innerHTML = boxes.join("") + groupSelection;
     },
 
 shouldShowBoxInCurrentMode(item, selected, editing, overflow) {
@@ -3814,6 +3856,11 @@ isWrapperOnlyTextBox(element) {
 
 boxTemplate(item, rect, selected, editing, overflow) {
       const layoutMode = this.isLayoutMode?.() || item.type === "layout";
+      const selectedLayoutCount = layoutMode && selected
+        ? (this.selectedLayoutItemsFor?.(item).length || 1)
+        : 0;
+      const showIndividualHandles = selectedLayoutCount <= 1 ||
+        (this.normalizeLayoutToolMode?.(this.layoutToolMode) || "moveScale") === "size";
       const locked = this.isItemLocked?.(item) || false;
       const typeLabel = layoutMode
         ? this.t("layoutLabel")
@@ -3842,7 +3889,42 @@ boxTemplate(item, rect, selected, editing, overflow) {
           data-item-id="${escapeAttr(item.id)}"
           style="left:${round(rect.left)}px;top:${round(rect.top)}px;width:${round(rect.width)}px;height:${round(rect.height)}px">
           <span class="box-label">${typeLabel}${positionLabel}${offsetLabel}${lockedLabel}${overflow ? ` ${this.t("overflow")}` : ""}</span>
-          ${layoutMode && selected && item.id === this.selectedId ? this.layoutHandlesTemplate() : ""}
+          ${layoutMode && selected && item.id === this.selectedId && showIndividualHandles ? this.layoutHandlesTemplate() : ""}
+        </div>
+      `;
+    },
+
+layoutGroupSelectionTemplate() {
+      if (!this.isLayoutMode?.()) {
+        return "";
+      }
+      const items = this.selectedLayoutItemsFor?.() || [];
+      if (items.length < 2) {
+        return "";
+      }
+      const entries = items.map((item) => {
+        const target = this.layoutTargetForItem?.(item);
+        if (!target) {
+          return null;
+        }
+        return { item, startRect: target.getBoundingClientRect() };
+      }).filter(Boolean);
+      const bounds = this.layoutGroupBounds?.(entries);
+      const primary = this.selectedItem?.() || items.at(-1);
+      if (!bounds || !primary) {
+        return "";
+      }
+      const handles = (this.normalizeLayoutToolMode?.(this.layoutToolMode) || "moveScale") === "moveScale"
+        ? this.layoutScaleHandlesTemplate()
+        : "";
+      const label = this.lang === "zh-CN" ? `已选 ${items.length} 项` : `${items.length} selected`;
+      return `
+        <div class="layout-group-selection"
+          data-layout-group-selection="true"
+          data-item-id="${escapeAttr(primary.id)}"
+          style="left:${round(bounds.left)}px;top:${round(bounds.top)}px;width:${round(bounds.width)}px;height:${round(bounds.height)}px">
+          <span class="box-label">${escapeHtml(label)}</span>
+          ${handles}
         </div>
       `;
     },
@@ -5884,6 +5966,9 @@ setEditorMode(mode) {
         return;
       }
 
+      if (nextMode !== "layout") {
+        this.finishLayoutMarquee?.(true);
+      }
       this.commitActiveText?.();
       this.editMode = nextMode;
       this.closeOpenMenus?.();
@@ -6195,6 +6280,193 @@ refreshModeButtons() {
       }
     },
 
+    startLayoutMarquee(event) {
+      if (!this.isLayoutMode?.() || !this.showBoxes || event?.button !== 0 || event.defaultPrevented) {
+        return false;
+      }
+      if (this.layoutMarquee || this.layoutDrag || this.layoutScaleDrag || this.layoutResizeDrag) {
+        return false;
+      }
+
+      const path = event.composedPath?.() || [];
+      if (this.host && path.includes(this.host)) {
+        return false;
+      }
+      const target = event.target;
+      if (!target || target.nodeType !== Node.ELEMENT_NODE) {
+        return false;
+      }
+      if (target.closest?.("[data-hsm-editor], [data-hsm-version-save], [data-hsm-project-toolbar]")) {
+        return false;
+      }
+      if (target.closest?.("input,textarea,select,button,a[href],summary,[contenteditable='true']")) {
+        return false;
+      }
+
+      this.commitActiveText?.();
+      this.closeOpenMenus?.();
+      const baseIds = new Set(
+        this.selectedIds?.size
+          ? Array.from(this.selectedIds)
+          : (this.selectedId ? [this.selectedId] : [])
+      );
+      const onMove = (moveEvent) => this.handleLayoutMarqueeMove(moveEvent);
+      const onUp = (upEvent) => {
+        upEvent.preventDefault();
+        upEvent.stopImmediatePropagation();
+        this.finishLayoutMarquee(false);
+      };
+      const removeClickBlocker = () => document.removeEventListener("click", onClick, true);
+      const onClick = (clickEvent) => {
+        clickEvent.preventDefault();
+        clickEvent.stopImmediatePropagation();
+        removeClickBlocker();
+      };
+      const onKey = (keyEvent) => {
+        if (keyEvent.key !== "Escape") {
+          return;
+        }
+        keyEvent.preventDefault();
+        keyEvent.stopImmediatePropagation();
+        this.finishLayoutMarquee(true);
+      };
+      this.layoutMarquee = {
+        startX: event.clientX,
+        startY: event.clientY,
+        currentX: event.clientX,
+        currentY: event.clientY,
+        additive: this.isSelectionToggleEvent?.(event) || false,
+        baseIds,
+        started: false,
+        cleanup: () => {
+          document.removeEventListener("pointermove", onMove, true);
+          document.removeEventListener("pointerup", onUp, true);
+          document.removeEventListener("keydown", onKey, true);
+          window.setTimeout(removeClickBlocker, 0);
+        }
+      };
+      document.addEventListener("pointermove", onMove, true);
+      document.addEventListener("pointerup", onUp, true);
+      document.addEventListener("keydown", onKey, true);
+      document.addEventListener("click", onClick, true);
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return true;
+    },
+
+    handleLayoutMarqueeMove(event) {
+      const marquee = this.layoutMarquee;
+      if (!marquee) {
+        return;
+      }
+      marquee.currentX = clamp(event.clientX, 0, window.innerWidth || event.clientX);
+      marquee.currentY = clamp(event.clientY, 0, window.innerHeight || event.clientY);
+      if (!marquee.started && Math.hypot(marquee.currentX - marquee.startX, marquee.currentY - marquee.startY) < 4) {
+        return;
+      }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      marquee.started = true;
+      this.updateLayoutMarqueeElement(this.layoutMarqueeRect(marquee));
+    },
+
+    layoutMarqueeRect(marquee) {
+      const left = Math.min(marquee.startX, marquee.currentX);
+      const top = Math.min(marquee.startY, marquee.currentY);
+      const right = Math.max(marquee.startX, marquee.currentX);
+      const bottom = Math.max(marquee.startY, marquee.currentY);
+      return {
+        left,
+        top,
+        right,
+        bottom,
+        width: right - left,
+        height: bottom - top
+      };
+    },
+
+    updateLayoutMarqueeElement(rect) {
+      if (!this.layer) {
+        return;
+      }
+      let element = this.layoutMarqueeElement;
+      if (!element?.isConnected) {
+        element = document.createElement("div");
+        element.className = "layout-marquee";
+        element.setAttribute("data-layout-marquee", "true");
+        this.layer.appendChild(element);
+        this.layoutMarqueeElement = element;
+      }
+      Object.assign(element.style, {
+        left: `${round(rect.left)}px`,
+        top: `${round(rect.top)}px`,
+        width: `${round(rect.width)}px`,
+        height: `${round(rect.height)}px`
+      });
+    },
+
+    finishLayoutMarquee(cancelled = false) {
+      const marquee = this.layoutMarquee;
+      if (!marquee) {
+        return;
+      }
+      this.layoutMarquee = null;
+      marquee.cleanup?.();
+      this.layoutMarqueeElement?.remove();
+      this.layoutMarqueeElement = null;
+      if (cancelled) {
+        return;
+      }
+
+      const hitIds = marquee.started
+        ? this.expandLogicalGroupIds(this.layoutMarqueeHitIds(this.layoutMarqueeRect(marquee)))
+        : new Set();
+      const nextIds = marquee.additive ? new Set(marquee.baseIds) : new Set();
+      for (const id of hitIds) {
+        nextIds.add(id);
+      }
+      this.selectedIds = nextIds;
+      const hitList = Array.from(hitIds);
+      this.selectedId = hitList.at(-1) || (marquee.additive ? Array.from(nextIds).at(-1) : null);
+      this.editingTextId = null;
+      this.savedTextRange = null;
+      this.renderBoxes?.();
+      this.refreshToolbar?.();
+    },
+
+    layoutMarqueeHitIds(rect) {
+      const ids = new Set();
+      for (const box of this.layer?.querySelectorAll(".box[data-item-id]") || []) {
+        const boxRect = box.getBoundingClientRect();
+        const intersects = boxRect.right >= rect.left &&
+          boxRect.left <= rect.right &&
+          boxRect.bottom >= rect.top &&
+          boxRect.top <= rect.bottom;
+        if (intersects && this.items.has(box.dataset.itemId)) {
+          ids.add(box.dataset.itemId);
+        }
+      }
+      return ids;
+    },
+
+    expandLogicalGroupIds(ids) {
+      const expanded = new Set(ids || []);
+      const groupIds = new Set(
+        Array.from(expanded)
+          .map((id) => this.groupIdForItem?.(this.items.get(id)))
+          .filter(Boolean)
+      );
+      if (!groupIds.size) {
+        return expanded;
+      }
+      for (const item of this.items.values()) {
+        if (groupIds.has(this.groupIdForItem?.(item))) {
+          expanded.add(item.id);
+        }
+      }
+      return expanded;
+    },
+
     selectedLayoutItemsFor(triggerItem = null) {
       const selected = this.selectedItems?.() || [];
       const group = selected
@@ -6271,17 +6543,41 @@ layoutInteractionEntries(items) {
         if (!target) {
           return null;
         }
+        const startRect = target.getBoundingClientRect();
         return {
           item,
           adjustment,
           target,
           before: null,
-          startRect: target.getBoundingClientRect(),
+          startRect,
+          startCenterX: startRect.left + startRect.width / 2,
+          startCenterY: startRect.top + startRect.height / 2,
           originX: adjustment.x || 0,
           originY: adjustment.y || 0,
           originScale: adjustment.scale || 1
         };
       }).filter(Boolean);
+    },
+
+layoutGroupBounds(entries) {
+      const rects = (entries || []).map((entry) => entry?.startRect).filter(Boolean);
+      if (!rects.length) {
+        return null;
+      }
+      const left = Math.min(...rects.map((rect) => rect.left));
+      const top = Math.min(...rects.map((rect) => rect.top));
+      const right = Math.max(...rects.map((rect) => rect.right));
+      const bottom = Math.max(...rects.map((rect) => rect.bottom));
+      return {
+        left,
+        top,
+        right,
+        bottom,
+        width: right - left,
+        height: bottom - top,
+        centerX: left + (right - left) / 2,
+        centerY: top + (bottom - top) / 2
+      };
     },
 
 captureLayoutBatchBefore(entries) {
@@ -6498,7 +6794,8 @@ startLayoutScale(event, item, handle) {
       }
       const entries = this.layoutInteractionEntries(items);
       const primary = entries.find((entry) => entry.item.id === item.id) || entries[0];
-      if (!primary) {
+      const groupBounds = this.layoutGroupBounds(entries);
+      if (!primary || !groupBounds) {
         return;
       }
 
@@ -6507,9 +6804,8 @@ startLayoutScale(event, item, handle) {
       this.commitActiveText?.();
       this.closeOpenMenus?.();
 
-      const rect = primary.target.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
+      const centerX = groupBounds.centerX;
+      const centerY = groupBounds.centerY;
       const startDistance = Math.max(12, Math.hypot(event.clientX - centerX, event.clientY - centerY));
       this.layoutScaleDrag = {
         item,
@@ -6584,6 +6880,10 @@ handleLayoutScaleMove(event) {
 
       for (const entry of drag.entries) {
         entry.adjustment.scale = clamp(entry.originScale * ratio, 0.2, 5);
+        const relativeX = entry.startCenterX - drag.centerX;
+        const relativeY = entry.startCenterY - drag.centerY;
+        entry.adjustment.x = entry.originX + relativeX * (ratio - 1);
+        entry.adjustment.y = entry.originY + relativeY * (ratio - 1);
         this.applyLayoutAdjustment(entry.item, entry.adjustment);
       }
       this.renderBoxes?.();
@@ -9837,6 +10137,8 @@ refreshInteractionPanel() {
       this.undoStack = [];
       this.redoStack = [];
       this.drag = null;
+      this.layoutMarquee = null;
+      this.layoutMarqueeElement = null;
       this.layoutDrag = null;
       this.layoutScaleDrag = null;
       this.layoutResizeDrag = null;

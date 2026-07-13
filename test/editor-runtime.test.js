@@ -395,3 +395,53 @@ test("editor runtime distributes three or more selected elements evenly", async 
   assert.match(distributeRule, /getBoundingClientRect/);
   assert.match(distributeRule, /applyLayoutAdjustment/);
 });
+
+test("layout mode supports PowerPoint-like marquee multi-selection", async () => {
+  const runtime = await readFile(
+    new URL("../vendor/html-slide-mender/assets/html-slide-mender-runtime.js", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(runtime, /\.layout-marquee\s*\{/);
+  assert.match(runtime, /layoutModeOn:\s*"[^"]*框选/);
+  assert.match(runtime, /startLayoutMarquee\(event\)/);
+  assert.match(runtime, /finishLayoutMarquee\(cancelled/);
+  assert.match(runtime, /layoutMarqueeHitIds\(rect\)/);
+  assert.match(runtime, /expandLogicalGroupIds\(ids\)/);
+
+  const pointerStart = runtime.indexOf("\nhandleDocumentPointerDown(event) {");
+  const pointerEnd = runtime.indexOf("\n    },", pointerStart);
+  assert.ok(pointerStart >= 0 && pointerEnd > pointerStart, "document pointer handler is missing");
+  assert.match(runtime.slice(pointerStart, pointerEnd), /startLayoutMarquee/);
+
+  const finishStart = runtime.indexOf("\n    finishLayoutMarquee(cancelled");
+  const finishEnd = runtime.indexOf("\n    },", finishStart);
+  assert.ok(finishStart >= 0 && finishEnd > finishStart, "marquee completion logic is missing");
+  const finishRule = runtime.slice(finishStart, finishEnd);
+  assert.match(finishRule, /additive/);
+  assert.match(finishRule, /selectedIds/);
+  assert.match(finishRule, /expandLogicalGroupIds/);
+});
+
+test("multi-element scaling preserves true group geometry", async () => {
+  const runtime = await readFile(
+    new URL("../vendor/html-slide-mender/assets/html-slide-mender-runtime.js", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(runtime, /layoutGroupBounds\(entries\)/);
+  const startScale = runtime.indexOf("\nstartLayoutScale(event, item, handle) {");
+  const endStartScale = runtime.indexOf("\nhandleLayoutScaleMove(event) {", startScale);
+  assert.ok(startScale >= 0 && endStartScale > startScale, "layout scale setup is missing");
+  const startScaleRule = runtime.slice(startScale, endStartScale);
+  assert.match(startScaleRule, /layoutGroupBounds/);
+  assert.match(startScaleRule, /groupBounds\.centerX/);
+  assert.match(startScaleRule, /groupBounds\.centerY/);
+
+  const scaleMove = runtime.slice(endStartScale, runtime.indexOf("\nstartLayoutResize(event", endStartScale));
+  assert.match(scaleMove, /entry\.startCenterX - drag\.centerX/);
+  assert.match(scaleMove, /entry\.startCenterY - drag\.centerY/);
+  assert.match(scaleMove, /entry\.adjustment\.x = entry\.originX/);
+  assert.match(scaleMove, /entry\.adjustment\.y = entry\.originY/);
+  assert.match(scaleMove, /applyLayoutAdjustment/);
+});
