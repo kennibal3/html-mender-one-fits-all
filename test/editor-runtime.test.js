@@ -297,3 +297,101 @@ test("font menu includes common Chinese teaching fonts", async () => {
     assert.match(runtime, new RegExp(fontName));
   }
 });
+
+test("editor runtime inserts a directly editable text box with undo and export support", async () => {
+  const runtime = await readFile(
+    new URL("../vendor/html-slide-mender/assets/html-slide-mender-runtime.js", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(runtime, /data-action="add-text"/);
+  assert.match(runtime, /case "add-text":[\s\S]{0,120}this\.addTextBox/);
+  assert.match(runtime, /addTextBox\(\)/);
+  assert.match(runtime, /createTextBoxElement\(\)/);
+  assert.match(runtime, /adoptAddedTextElement\(element\)/);
+  assert.match(runtime, /pushElementPresenceHistory\(item/);
+  assert.match(runtime, /this\.enterTextEdit\(item\)/);
+
+  const createStart = runtime.indexOf("\n    createTextBoxElement() {");
+  const createEnd = runtime.indexOf("\n    },", createStart);
+  assert.ok(createStart >= 0 && createEnd > createStart, "text box factory is missing");
+  const createRule = runtime.slice(createStart, createEnd);
+  assert.match(createRule, /data-hsm-added/);
+  assert.match(createRule, /data-editable/);
+  assert.match(createRule, /data-layout-editable/);
+  assert.match(createRule, /position:\s*"absolute"/);
+  assert.match(createRule, /newTextPlaceholder/);
+
+  assert.match(runtime, /kind:\s*"presence"/);
+  assert.match(runtime, /state\.kind === "presence"/);
+  assert.match(runtime, /serializeAddedElements\?\.\(\s*sourceHtmlForExport\s*\)/);
+});
+
+test("source-backed export does not duplicate previously saved added elements", async () => {
+  const runtime = await readFile(
+    new URL("../vendor/html-slide-mender/assets/html-slide-mender-runtime.js", import.meta.url),
+    "utf8"
+  );
+
+  const serializeStart = runtime.indexOf("\n    serializeAddedElements(sourceHtml = \"\") {");
+  const serializeEnd = runtime.indexOf("\n    },", serializeStart);
+  assert.ok(serializeStart >= 0 && serializeEnd > serializeStart, "source-aware added element serializer is missing");
+  const serializeRule = runtime.slice(serializeStart, serializeEnd);
+  assert.match(serializeRule, /new DOMParser\(\)\.parseFromString/);
+  assert.match(serializeRule, /selectorForDraftElement/);
+  assert.match(serializeRule, /sourceDocument\.querySelector/);
+  assert.match(serializeRule, /sourceElement\.tagName === element\.tagName/);
+});
+
+test("editor runtime groups elements without wrapping or breaking the courseware DOM", async () => {
+  const runtime = await readFile(
+    new URL("../vendor/html-slide-mender/assets/html-slide-mender-runtime.js", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(runtime, /data-action="group-elements"/);
+  assert.match(runtime, /data-action="ungroup-elements"/);
+  assert.match(runtime, /case "group-elements":[\s\S]{0,120}this\.groupSelectedElements/);
+  assert.match(runtime, /case "ungroup-elements":[\s\S]{0,120}this\.ungroupSelectedElements/);
+  assert.match(runtime, /groupSelectedElements\(\)/);
+  assert.match(runtime, /ungroupSelectedElements\(\)/);
+  assert.match(runtime, /groupIdForItem\(item\)/);
+  assert.match(runtime, /selectLogicalGroup\(id/);
+  assert.match(runtime, /data-hsm-group-id/);
+
+  const groupStart = runtime.indexOf("\n    groupSelectedElements() {");
+  const groupEnd = runtime.indexOf("\n    },", groupStart);
+  assert.ok(groupStart >= 0 && groupEnd > groupStart, "group action is missing");
+  const groupRule = runtime.slice(groupStart, groupEnd);
+  assert.doesNotMatch(groupRule, /appendChild|replaceChildren|insertBefore/);
+  assert.match(groupRule, /withLayoutMutation/);
+
+  const captureStart = runtime.indexOf("\n    captureState(item) {");
+  const captureEnd = runtime.indexOf("\nrestoreState(item, state) {", captureStart);
+  assert.ok(captureStart >= 0 && captureEnd > captureStart, "history capture is missing");
+  assert.match(runtime.slice(captureStart, captureEnd), /groupId/);
+  assert.match(runtime, /restoreAttr\([^\n]+"data-hsm-group-id"/);
+  assert.match(runtime, /groupAttributesForExport/);
+});
+
+test("editor runtime distributes three or more selected elements evenly", async () => {
+  const runtime = await readFile(
+    new URL("../vendor/html-slide-mender/assets/html-slide-mender-runtime.js", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(runtime, /data-action="layout-distribute-horizontal"/);
+  assert.match(runtime, /data-action="layout-distribute-vertical"/);
+  assert.match(runtime, /case "layout-distribute-horizontal":[\s\S]{0,140}distributeSelectedLayout\?\.\("horizontal"\)/);
+  assert.match(runtime, /case "layout-distribute-vertical":[\s\S]{0,140}distributeSelectedLayout\?\.\("vertical"\)/);
+  assert.match(runtime, /distributeSelectedLayout\(axis\)/);
+
+  const distributeStart = runtime.indexOf("\n    distributeSelectedLayout(axis) {");
+  const distributeEnd = runtime.indexOf("\n    },", distributeStart);
+  assert.ok(distributeStart >= 0 && distributeEnd > distributeStart, "distribution action is missing");
+  const distributeRule = runtime.slice(distributeStart, distributeEnd);
+  assert.match(distributeRule, /items\.length < 3/);
+  assert.match(distributeRule, /withLayoutMutation/);
+  assert.match(distributeRule, /getBoundingClientRect/);
+  assert.match(distributeRule, /applyLayoutAdjustment/);
+});

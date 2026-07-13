@@ -333,6 +333,7 @@
       advancedElementsOff: "高级元素 关",
       insert: "插入",
       insertImageVideo: "图片/视频/音频",
+      addText: "文本框",
       addRect: "矩形",
       addCircle: "圆形",
       addLine: "线条",
@@ -436,9 +437,13 @@
       layoutAlignTop: "上齐",
       layoutAlignVCenter: "垂直居中",
       layoutAlignBottom: "下齐",
+      layoutDistributeHorizontal: "横向等距",
+      layoutDistributeVertical: "纵向等距",
       layoutSameWidth: "同宽",
       layoutSameHeight: "同高",
       layoutSameSize: "同宽高",
+      groupElements: "组合",
+      ungroupElements: "取消组合",
       scaleLayout: "缩放",
       resizeLayout: "改宽高",
       started: "编辑器已启动。",
@@ -457,6 +462,8 @@
       imageReplaced: "图片已替换。",
       mediaInserted: "媒体已插入。",
       mediaReplaced: "媒体已替换。",
+      newTextPlaceholder: "双击输入文字",
+      textBoxAdded: "文本框已插入，可直接输入文字。",
       shapeAdded: "形状已插入。",
       elementDuplicated: "元素已复制。",
       elementDeleted: "元素已删除。",
@@ -470,6 +477,12 @@
       advancedElementsVisible: "已显示高级结构元素。",
       advancedElementsHidden: "已隐藏高级结构元素。",
       layoutReset: "版面已恢复。",
+      groupNeedsTwo: "请先选择至少两个元素。",
+      elementsGrouped: "元素已组合，拖动或缩放会整体操作。",
+      elementsUngrouped: "元素已取消组合。",
+      noGroupSelected: "当前选择中没有组合。",
+      distributionNeedsThree: "请先选择至少三个元素。",
+      elementsDistributed: "元素已等距分布。",
       htmlReady: "HTML 已准备好。",
       downloadStarted: "HTML 下载已开始。",
       draftSaved: "草稿已保存，刷新后会自动恢复。",
@@ -494,6 +507,7 @@
       advancedElementsOff: "Advanced off",
       insert: "Insert",
       insertImageVideo: "Image/video/audio",
+      addText: "Text box",
       addRect: "Rectangle",
       addCircle: "Circle",
       addLine: "Line",
@@ -597,9 +611,13 @@
       layoutAlignTop: "Top",
       layoutAlignVCenter: "V center",
       layoutAlignBottom: "Bottom",
+      layoutDistributeHorizontal: "Distribute H",
+      layoutDistributeVertical: "Distribute V",
       layoutSameWidth: "Same W",
       layoutSameHeight: "Same H",
       layoutSameSize: "Same size",
+      groupElements: "Group",
+      ungroupElements: "Ungroup",
       scaleLayout: "Scale",
       resizeLayout: "Resize",
       started: "Editor started.",
@@ -618,6 +636,8 @@
       imageReplaced: "Image replaced.",
       mediaInserted: "Media inserted.",
       mediaReplaced: "Media replaced.",
+      newTextPlaceholder: "Double-click to enter text",
+      textBoxAdded: "Text box inserted. Start typing.",
       shapeAdded: "Shape inserted.",
       elementDuplicated: "Element duplicated.",
       elementDeleted: "Element deleted.",
@@ -631,6 +651,12 @@
       advancedElementsVisible: "Advanced structure elements visible.",
       advancedElementsHidden: "Advanced structure elements hidden.",
       layoutReset: "Layout reset.",
+      groupNeedsTwo: "Select at least two elements.",
+      elementsGrouped: "Elements grouped. Move or resize them together.",
+      elementsUngrouped: "Elements ungrouped.",
+      noGroupSelected: "No grouped elements are selected.",
+      distributionNeedsThree: "Select at least three elements.",
+      elementsDistributed: "Elements distributed evenly.",
       htmlReady: "HTML ready.",
       downloadStarted: "HTML download started.",
       draftSaved: "Draft saved. It will restore after refresh.",
@@ -2386,6 +2412,9 @@ async handleAction(action, button = null) {
         case "insert-media":
           this.openMediaPicker?.("insert");
           return;
+        case "add-text":
+          this.addTextBox?.();
+          return;
         case "add-rect":
           this.addShape?.("rect");
           return;
@@ -2440,6 +2469,12 @@ async handleAction(action, button = null) {
         case "layout-align-bottom":
           this.alignSelectedLayout?.("bottom");
           return;
+        case "layout-distribute-horizontal":
+          this.distributeSelectedLayout?.("horizontal");
+          return;
+        case "layout-distribute-vertical":
+          this.distributeSelectedLayout?.("vertical");
+          return;
         case "layout-same-width":
           this.matchSelectedLayoutSize?.("width");
           return;
@@ -2448,6 +2483,12 @@ async handleAction(action, button = null) {
           return;
         case "layout-same-size":
           this.matchSelectedLayoutSize?.("both");
+          return;
+        case "group-elements":
+          this.groupSelectedElements?.();
+          return;
+        case "ungroup-elements":
+          this.ungroupSelectedElements?.();
           return;
         case "undo":
           this.undo();
@@ -2620,6 +2661,12 @@ selectItem(id, options = {}) {
 
       this.selectedIds = this.selectedIds || new Set();
       const canMultiSelect = this.isLayoutMode?.() && (options.toggle || options.extend || options.preserveGroup);
+      const canSelectLogicalGroup = this.isLayoutMode?.() && id && !canMultiSelect && !options.ignoreGroup;
+      if (canSelectLogicalGroup && this.selectLogicalGroup(id)) {
+        this.refreshToolbar();
+        this.renderBoxes();
+        return;
+      }
       if (canMultiSelect) {
         if (options.preserveGroup && this.selectedIds.has(id)) {
           this.selectedId = id;
@@ -2646,6 +2693,31 @@ selectItem(id, options = {}) {
 
       this.refreshToolbar();
       this.renderBoxes();
+    },
+
+    groupIdForItem(item) {
+      const target = this.layoutTargetForItem?.(item) || item?.frameElement || item?.element;
+      return target?.getAttribute?.("data-hsm-group-id") || "";
+    },
+
+    selectLogicalGroup(id) {
+      const item = this.items.get(id);
+      const groupId = this.groupIdForItem(item);
+      if (!groupId) {
+        return false;
+      }
+      const ids = Array.from(this.items.values())
+        .filter((candidate) => this.groupIdForItem(candidate) === groupId)
+        .map((candidate) => candidate.id);
+      if (ids.length < 2) {
+        return false;
+      }
+      this.selectedIds.clear();
+      for (const memberId of ids) {
+        this.selectedIds.add(memberId);
+      }
+      this.selectedId = id;
+      return true;
     },
 
 clearSelection() {
@@ -4207,6 +4279,7 @@ template() {
 
             <div class="group group-insert" aria-label="${escapeAttr(this.t("insert"))}">
               <button type="button" data-action="insert-media">${escapeHtml(this.t("insertImageVideo"))}</button>
+              <button type="button" data-action="add-text">${escapeHtml(this.t("addText"))}</button>
               <button type="button" data-action="add-rect">${escapeHtml(this.t("addRect"))}</button>
               <button type="button" data-action="add-circle">${escapeHtml(this.t("addCircle"))}</button>
               <button type="button" data-action="add-line">${escapeHtml(this.t("addLine"))}</button>
@@ -4338,6 +4411,8 @@ template() {
                 <button class="layout-multi" type="button" data-action="layout-same-height">${escapeHtml(this.t("layoutSameHeight"))}</button>
                 <button class="layout-multi" type="button" data-action="layout-same-width">${escapeHtml(this.t("layoutSameWidth"))}</button>
                 <button class="layout-multi" type="button" data-action="layout-same-size">${escapeHtml(this.t("layoutSameSize"))}</button>
+                <button class="layout-multi" type="button" data-action="group-elements">${escapeHtml(this.t("groupElements"))}</button>
+                <button type="button" data-action="ungroup-elements">${escapeHtml(this.t("ungroupElements"))}</button>
                 <span class="layout-separator" aria-hidden="true"></span>
                 <button type="button" data-action="layout-reset">${escapeHtml(this.t("resetLayout"))}</button>
               </div>
@@ -4349,6 +4424,9 @@ template() {
                 ${this.layoutIconButton("layout-align-top", "layoutAlignTop", "align-top")}
                 ${this.layoutIconButton("layout-align-v-center", "layoutAlignVCenter", "align-v-center")}
                 ${this.layoutIconButton("layout-align-bottom", "layoutAlignBottom", "align-bottom")}
+                <span class="layout-separator" aria-hidden="true"></span>
+                <button type="button" data-action="layout-distribute-horizontal">${escapeHtml(this.t("layoutDistributeHorizontal"))}</button>
+                <button type="button" data-action="layout-distribute-vertical">${escapeHtml(this.t("layoutDistributeVertical"))}</button>
               </div>
             </div>
 
@@ -6084,7 +6162,7 @@ refreshModeButtons() {
       layoutButton?.setAttribute("aria-pressed", active ? "true" : "false");
     },
 
-refreshLayoutToolButtons() {
+    refreshLayoutToolButtons() {
       const activeMode = this.normalizeLayoutToolMode?.(this.layoutToolMode) || "moveScale";
       const modeMap = {
         "layout-tool-move-scale": activeMode === "moveScale",
@@ -6102,9 +6180,22 @@ refreshLayoutToolButtons() {
           button.textContent = this.showAdvancedLayout ? this.t("advancedElementsOn") : this.t("advancedElementsOff");
         }
       }
+      const items = this.selectedLayoutItemsFor?.() || [];
+      const availability = {
+        "group-elements": items.length >= 2,
+        "ungroup-elements": items.some((item) => Boolean(this.groupIdForItem?.(item))),
+        "layout-distribute-horizontal": items.length >= 3,
+        "layout-distribute-vertical": items.length >= 3
+      };
+      for (const [action, enabled] of Object.entries(availability)) {
+        const button = this.shadow?.querySelector(`[data-action='${action}']`);
+        if (button) {
+          button.disabled = !enabled;
+        }
+      }
     },
 
-selectedLayoutItemsFor(triggerItem = null) {
+    selectedLayoutItemsFor(triggerItem = null) {
       const selected = this.selectedItems?.() || [];
       const group = selected
         .filter((item) => this.layoutTargetForItem(item))
@@ -6115,7 +6206,53 @@ selectedLayoutItemsFor(triggerItem = null) {
       return triggerItem && this.layoutTargetForItem(triggerItem) ? [triggerItem] : group;
     },
 
-prepareLayoutInteractionSelection(item) {
+    nextLogicalGroupId() {
+      this.nextGroupId = (this.nextGroupId || 0) + 1;
+      return `hsm-group-${Date.now().toString(36)}-${this.nextGroupId}`;
+    },
+
+    groupSelectedElements() {
+      const items = this.selectedLayoutItemsFor();
+      if (items.length < 2) {
+        this.toast?.(this.t("groupNeedsTwo"));
+        return;
+      }
+      const groupId = this.nextLogicalGroupId();
+      this.withLayoutMutation(items, () => {
+        for (const item of items) {
+          this.layoutTargetForItem(item)?.setAttribute("data-hsm-group-id", groupId);
+        }
+      }, "Group elements");
+      this.selectedIds = new Set(items.map((item) => item.id));
+      this.selectedId = items.at(-1)?.id || this.selectedId;
+      this.renderBoxes?.();
+      this.refreshToolbar?.();
+      this.toast?.(this.t("elementsGrouped"));
+    },
+
+    ungroupSelectedElements() {
+      const selected = this.selectedLayoutItemsFor();
+      const groupIds = new Set(selected.map((item) => this.groupIdForItem(item)).filter(Boolean));
+      if (!groupIds.size) {
+        this.toast?.(this.t("noGroupSelected"));
+        return;
+      }
+      const items = Array.from(this.items.values())
+        .filter((item) => groupIds.has(this.groupIdForItem(item)))
+        .filter((item) => this.layoutTargetForItem(item));
+      this.withLayoutMutation(items, () => {
+        for (const item of items) {
+          this.layoutTargetForItem(item)?.removeAttribute("data-hsm-group-id");
+        }
+      }, "Ungroup elements");
+      this.selectedIds = new Set(items.map((item) => item.id));
+      this.selectedId = items.at(-1)?.id || this.selectedId;
+      this.renderBoxes?.();
+      this.refreshToolbar?.();
+      this.toast?.(this.t("elementsUngrouped"));
+    },
+
+    prepareLayoutInteractionSelection(item) {
       if (!item) {
         return [];
       }
@@ -6787,7 +6924,7 @@ resetSelectedLayout() {
       this.toast?.(this.t("layoutReset"));
     },
 
-alignSelectedLayout(kind) {
+    alignSelectedLayout(kind) {
       const items = this.selectedLayoutItemsFor();
       const primary = this.selectedItem();
       if (!primary || items.length < 2 || !items.some((item) => item.id === primary.id)) {
@@ -6817,7 +6954,56 @@ alignSelectedLayout(kind) {
       }, "Align elements");
     },
 
-layoutAlignmentDelta(kind, anchorRect, rect) {
+    distributeSelectedLayout(axis) {
+      const items = this.selectedLayoutItemsFor();
+      if (items.length < 3) {
+        this.toast?.(this.t("distributionNeedsThree"));
+        return;
+      }
+      const horizontal = axis === "horizontal";
+      const metrics = items.map((item) => {
+        const rect = this.itemBoxElement(item)?.getBoundingClientRect?.();
+        if (!rect) {
+          return null;
+        }
+        return {
+          item,
+          rect,
+          start: horizontal ? rect.left : rect.top,
+          end: horizontal ? rect.right : rect.bottom,
+          size: horizontal ? rect.width : rect.height
+        };
+      }).filter(Boolean).sort((a, b) => a.start - b.start);
+      if (metrics.length < 3) {
+        return;
+      }
+      const first = metrics[0];
+      const last = metrics.at(-1);
+      const totalSize = metrics.reduce((sum, metric) => sum + metric.size, 0);
+      const gap = (last.end - first.start - totalSize) / (metrics.length - 1);
+
+      this.withLayoutMutation(items, () => {
+        let cursor = first.start;
+        for (const [index, metric] of metrics.entries()) {
+          if (index > 0 && index < metrics.length - 1) {
+            const adjustment = this.layoutAdjustmentFor(metric.item);
+            if (adjustment) {
+              const delta = cursor - metric.start;
+              if (horizontal) {
+                adjustment.x = (adjustment.x || 0) + delta;
+              } else {
+                adjustment.y = (adjustment.y || 0) + delta;
+              }
+              this.applyLayoutAdjustment(metric.item, adjustment);
+            }
+          }
+          cursor += metric.size + gap;
+        }
+      }, horizontal ? "Distribute horizontally" : "Distribute vertically");
+      this.toast?.(this.t("elementsDistributed"));
+    },
+
+    layoutAlignmentDelta(kind, anchorRect, rect) {
       switch (kind) {
         case "left":
           return { x: anchorRect.left - rect.left, y: 0 };
@@ -7112,11 +7298,13 @@ withMutation(item, mutate, label) {
     captureState(item) {
       const element = item.element;
       const target = this.styleTargetForItem?.(item) || element;
+      const groupId = target?.getAttribute?.("data-hsm-group-id") || null;
       if (item.type === "layout") {
         return {
           kind: "layout",
           style: element.getAttribute("style") || "",
-          locked: target?.getAttribute?.("data-hsm-locked") || null
+          locked: target?.getAttribute?.("data-hsm-locked") || null,
+          groupId
         };
       }
 
@@ -7125,7 +7313,8 @@ withMutation(item, mutate, label) {
           kind: "text",
           html: element.innerHTML,
           style: element.getAttribute("style") || "",
-          locked: target?.getAttribute?.("data-hsm-locked") || null
+          locked: target?.getAttribute?.("data-hsm-locked") || null,
+          groupId
         };
       }
 
@@ -7133,7 +7322,8 @@ withMutation(item, mutate, label) {
         return {
           kind: "background",
           style: element.getAttribute("style") || "",
-          locked: target?.getAttribute?.("data-hsm-locked") || null
+          locked: target?.getAttribute?.("data-hsm-locked") || null,
+          groupId
         };
       }
 
@@ -7147,12 +7337,46 @@ withMutation(item, mutate, label) {
         parentStyle: element.parentElement?.getAttribute("style") || null,
         locked: element.getAttribute("data-hsm-locked") || null,
         parentLocked: element.parentElement?.getAttribute("data-hsm-locked") || null,
-        targetLocked: target?.getAttribute?.("data-hsm-locked") || null
+        targetLocked: target?.getAttribute?.("data-hsm-locked") || null,
+        groupId
       };
+    },
+
+    pushElementPresenceHistory(item, parent = document.body, nextSibling = null, label = "Insert element") {
+      this.pushHistory(
+        item,
+        { kind: "presence", present: false, parent, nextSibling },
+        { kind: "presence", present: true, parent, nextSibling },
+        label
+      );
     },
 
 restoreState(item, state) {
       const element = item.element;
+      if (state.kind === "presence") {
+        if (state.present) {
+          const parent = state.parent?.isConnected ? state.parent : document.body;
+          if (!element.isConnected) {
+            if (state.nextSibling?.parentNode === parent) {
+              parent.insertBefore(element, state.nextSibling);
+            } else {
+              parent.appendChild(element);
+            }
+          }
+          this.items.set(item.id, item);
+        } else {
+          element.remove();
+          this.items.delete(item.id);
+          this.selectedIds?.delete(item.id);
+          if (this.selectedId === item.id) {
+            this.selectedId = this.lastSelectedId?.() || null;
+          }
+        }
+        return;
+      }
+
+      restoreAttr(this.styleTargetForItem?.(item) || element, "data-hsm-group-id", state.groupId || null);
+
       if (state.kind === "layout") {
         restoreAttr(element, "style", state.style);
         restoreAttr(this.styleTargetForItem?.(item) || element, "data-hsm-locked", state.locked || null);
@@ -7311,7 +7535,22 @@ markModified(item) {
       this.updateModifiedFromCurrent(item);
     },
 
-updateModifiedFromCurrent(item) {
+    updateModifiedFromCurrent(item) {
+      if (item.element?.hasAttribute?.("data-hsm-added")) {
+        if (!item.element.isConnected) {
+          this.modified.delete(item.id);
+        } else {
+          const existing = this.modified.get(item.id) || {};
+          this.modified.set(item.id, {
+            type: item.type,
+            imageMode: item.imageMode,
+            content: true,
+            layout: existing.layout !== undefined ? existing.layout : true
+          });
+        }
+        this.refreshToolbar();
+        return;
+      }
       const original = this.originalStates.get(item.id);
       if (!original) {
         return;
@@ -7435,7 +7674,10 @@ async serializeCleanHtml(_mode = "basic") {
       const sourceHtmlForExport = typeof skillSourceHtml === "string" ? skillSourceHtml : "";
       if (sourceHtmlForExport.trim()) {
         const html = this.serializeSourceBasedHtml(sourceHtmlForExport);
-        const withAdded = this.insertAddedElementsIntoHtml?.(html, this.serializeAddedElements?.()) || html;
+        const withAdded = this.insertAddedElementsIntoHtml?.(
+          html,
+          this.serializeAddedElements?.(sourceHtmlForExport)
+        ) || html;
         return this.injectInteractionRuntimeIntoHtml?.(withAdded) || withAdded;
       }
 
@@ -7538,19 +7780,23 @@ createSourceExportPatch(element, kind, sourceDocument) {
       if (!sourcePath.length) {
         return null;
       }
+      const groupAttributes = this.groupAttributesForExport(element, sourceElement);
 
       if (kind === "text") {
         const modified = this.isExportElementModified(element, "text");
-        if (!modified) {
+        if (!modified && !groupAttributes) {
           return null;
         }
         const html = element.innerHTML;
         const style = element.getAttribute("style") || "";
         const patch = { selector, sourcePath, kind, html };
+        if (groupAttributes) {
+          patch.groupAttributes = groupAttributes;
+        }
         if (style !== (sourceElement.getAttribute("style") || "")) {
           patch.style = style;
         }
-        if (html === sourceElement.innerHTML && patch.style === undefined) {
+        if (html === sourceElement.innerHTML && patch.style === undefined && !groupAttributes) {
           return null;
         }
         return patch;
@@ -7559,28 +7805,33 @@ createSourceExportPatch(element, kind, sourceDocument) {
       if (kind === "background") {
         const modified = this.isExportElementModified(element, "background");
         const style = element.getAttribute("style") || "";
-        if (!modified || style === (sourceElement.getAttribute("style") || "")) {
+        const styleChanged = modified && style !== (sourceElement.getAttribute("style") || "");
+        if (!styleChanged && !groupAttributes) {
           return null;
         }
-        return { selector, sourcePath, kind, style };
+        return { selector, sourcePath, kind, ...(styleChanged ? { style } : {}), ...(groupAttributes ? { groupAttributes } : {}) };
       }
 
       if (kind === "layout") {
         const style = element.getAttribute("style") || "";
-        if (style === (sourceElement.getAttribute("style") || "")) {
+        const styleChanged = style !== (sourceElement.getAttribute("style") || "");
+        if (!styleChanged && !groupAttributes) {
           return null;
         }
-        return { selector, sourcePath, kind, style };
+        return { selector, sourcePath, kind, ...(styleChanged ? { style } : {}), ...(groupAttributes ? { groupAttributes } : {}) };
       }
 
       const src = element.getAttribute("src") || "";
       const srcset = element.getAttribute("srcset") || "";
       const style = element.getAttribute("style") || "";
       const modified = this.isExportElementModified(element, "image");
-      if (!modified) {
+      if (!modified && !groupAttributes) {
         return null;
       }
       const patch = { selector, sourcePath, kind, src, srcset };
+      if (groupAttributes) {
+        patch.groupAttributes = groupAttributes;
+      }
       const mediaAttributes = this.captureMediaAttributes(element);
       const sourceMediaAttributes = this.captureMediaAttributes(sourceElement);
       if (JSON.stringify(mediaAttributes) !== JSON.stringify(sourceMediaAttributes)) {
@@ -7611,11 +7862,18 @@ createSourceExportPatch(element, kind, sourceDocument) {
         srcset === (sourceElement.getAttribute("srcset") || "") &&
         patch.style === undefined &&
         patch.pictureSources === undefined &&
-        patch.mediaAttributes === undefined
+        patch.mediaAttributes === undefined &&
+        !groupAttributes
       ) {
         return null;
       }
       return patch;
+    },
+
+    groupAttributesForExport(element, sourceElement) {
+      const current = element.getAttribute("data-hsm-group-id") || null;
+      const original = sourceElement.getAttribute("data-hsm-group-id") || null;
+      return current === original ? null : { "data-hsm-group-id": current };
     },
 
 sourcePathForElement(element) {
@@ -7650,11 +7908,12 @@ serializeSourceStringWithPatches(sourceHtml, patches) {
         }
 
         const interactionAttributes = patch.interactionAttributes || {};
+        const groupAttributes = patch.groupAttributes || {};
         if (patch.kind === "text") {
           if (node.endTagStart == null) {
             return "";
           }
-          const attrs = { ...interactionAttributes };
+          const attrs = { ...interactionAttributes, ...groupAttributes };
           if (patch.style !== undefined) {
             attrs.style = patch.style;
           }
@@ -7675,12 +7934,17 @@ serializeSourceStringWithPatches(sourceHtml, patches) {
         }
 
         if (patch.kind === "background" || patch.kind === "layout") {
-          this.addSourceAttributeEdit(sourceHtml, edits, node, { ...interactionAttributes, style: patch.style });
+          const attrs = { ...interactionAttributes, ...groupAttributes };
+          if (patch.style !== undefined) {
+            attrs.style = patch.style;
+          }
+          this.addSourceAttributeEdit(sourceHtml, edits, node, attrs);
           continue;
         }
 
         const attrs = {
           ...interactionAttributes,
+          ...groupAttributes,
           src: patch.src,
           srcset: patch.srcset
         };
@@ -8007,6 +8271,9 @@ applySourceExportPatch(sourceDocument, patch) {
       for (const [name, value] of Object.entries(patch.interactionAttributes || {})) {
         restoreAttr(element, name, value);
       }
+      for (const [name, value] of Object.entries(patch.groupAttributes || {})) {
+        restoreAttr(element, name, value);
+      }
 
       if (patch.kind === "interaction") {
         return;
@@ -8021,12 +8288,16 @@ applySourceExportPatch(sourceDocument, patch) {
       }
 
       if (patch.kind === "background") {
-        restoreAttr(element, "style", patch.style);
+        if (patch.style !== undefined) {
+          restoreAttr(element, "style", patch.style);
+        }
         return;
       }
 
       if (patch.kind === "layout") {
-        restoreAttr(element, "style", patch.style);
+        if (patch.style !== undefined) {
+          restoreAttr(element, "style", patch.style);
+        }
         return;
       }
 
@@ -8418,6 +8689,44 @@ fallbackDownload(html, filename) {
       this.toast(this.t("shapeAdded"));
     },
 
+    addTextBox() {
+      const element = this.createTextBoxElement();
+      document.body.appendChild(element);
+      const item = this.adoptAddedTextElement(element);
+      this.pushElementPresenceHistory(item, element.parentElement, element.nextSibling, "Insert text box");
+      this.toast(this.t("textBoxAdded"));
+      this.enterTextEdit(item);
+      requestAnimationFrame(() => selectElementContents(element));
+    },
+
+    createTextBoxElement() {
+      const element = document.createElement("div");
+      element.setAttribute("data-hsm-added", "true");
+      element.setAttribute("data-editable", "true");
+      element.setAttribute("data-layout-editable", "true");
+      element.textContent = this.t("newTextPlaceholder");
+      const box = this.defaultInsertedRect();
+      Object.assign(element.style, {
+        position: "absolute",
+        left: `${box.left}px`,
+        top: `${box.top}px`,
+        width: "320px",
+        minHeight: "64px",
+        padding: "8px 12px",
+        boxSizing: "border-box",
+        color: "#1f2937",
+        background: "transparent",
+        border: "1px solid transparent",
+        fontFamily: '"Microsoft YaHei", "PingFang SC", sans-serif',
+        fontSize: "28px",
+        lineHeight: "1.4",
+        whiteSpace: "pre-wrap",
+        overflowWrap: "anywhere",
+        zIndex: "20"
+      });
+      return element;
+    },
+
     createShapeElement(kind) {
       const shape = document.createElement("div");
       shape.setAttribute("data-hsm-added", "true");
@@ -8509,6 +8818,25 @@ fallbackDownload(html, filename) {
       this.setEditorMode?.("layout");
       this.selectItem(id);
       this.scheduleScan(0);
+      return item;
+    },
+
+    adoptAddedTextElement(element) {
+      const id = this.idFor(element, "text");
+      const item = {
+        id,
+        type: "text",
+        element,
+        frameElement: element,
+        positioned: true
+      };
+      this.items.set(id, item);
+      this.ensureOriginalState(item);
+      this.modified.set(id, { type: "text", content: true, layout: true });
+      this.setEditorMode?.("content");
+      this.selectItem(id);
+      this.scheduleScan(0);
+      return item;
     },
 
     duplicateSelectedElement() {
@@ -8741,9 +9069,33 @@ fallbackDownload(html, filename) {
       }
     },
 
-    serializeAddedElements() {
+    serializeAddedElements(sourceHtml = "") {
+      let sourceDocument = null;
+      if (String(sourceHtml || "").trim()) {
+        try {
+          sourceDocument = new DOMParser().parseFromString(String(sourceHtml), "text/html");
+        } catch (_error) {
+          sourceDocument = null;
+        }
+      }
+
       return Array.from(document.querySelectorAll("[data-hsm-added]"))
         .filter((element) => !element.closest?.(`#${ns.constants.ROOT_ID}`))
+        .filter((element) => {
+          if (!sourceDocument) {
+            return true;
+          }
+          const selector = this.selectorForDraftElement?.(element) || this.selectorForExportElement?.(element);
+          if (!selector) {
+            return true;
+          }
+          try {
+            const sourceElement = sourceDocument.querySelector(selector);
+            return !(sourceElement?.hasAttribute("data-hsm-added") && sourceElement.tagName === element.tagName);
+          } catch (_error) {
+            return true;
+          }
+        })
         .map((element) => element.outerHTML)
         .join("\n");
     },
@@ -9469,6 +9821,7 @@ refreshInteractionPanel() {
       this.interactions = [];
       this.interactionsDirty = false;
       this.nextInteractionNodeId = 0;
+      this.nextGroupId = 0;
       this.colorHistory = [];
       this.colorPickers = new Map();
       this.openCombo = null;
