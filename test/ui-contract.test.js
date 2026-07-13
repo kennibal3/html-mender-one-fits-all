@@ -1,0 +1,42 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+test("workspace UI exposes one unified upload entry, recent tasks, versions and native export", async () => {
+  const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
+  const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+
+  assert.match(html, /id="task-name"/);
+  assert.match(html, /id="asset-input"/);
+  assert.doesNotMatch(html, /id="project-form"/);
+  assert.doesNotMatch(html, /id="zip-task-name"/);
+  assert.match(html, /id="recent-tasks"/);
+  assert.match(html, /id="show-all-tasks"/);
+  assert.match(html, /recent-limit-note/);
+  assert.match(app, /RECENT_TASK_LIMIT = 5/);
+  assert.match(app, /files\.some\(.*isZipUpload/s);
+  assert.match(app, /body\.append\("taskName"/);
+  assert.match(app, /\/api\/projects\/upload/);
+  assert.match(app, /\/api\/upload/);
+  assert.match(app, /payload\.project/);
+  assert.match(app, /data-delete-task/);
+  assert.match(app, /data-restore-version/);
+  assert.match(app, /data-create-page/);
+  assert.match(app, /data-duplicate-page/);
+  assert.match(app, /data-delete-page/);
+  assert.match(app, /data-page-drag-handle/);
+  assert.match(app, /data-move-page/);
+  assert.match(app, /data-page-order/);
+  assert.match(app, /pointerdown/);
+  assert.match(app, /pointermove/);
+  assert.match(app, /pointerup/);
+  assert.match(app, /mousedown/);
+  assert.match(app, /mousemove/);
+  assert.match(app, /mouseup/);
+  assert.match(app, /setPointerCapture/);
+  assert.match(app, /if \(pointerDraggedPage\)[\s\S]*?preventDefault/);
+  assert.doesNotMatch(app, /class="page-drag-handle"[^>]*draggable="true"/);
+  assert.match(app, /deletedPages/);
+  assert.match(app, /htmlMenderDesktop.*saveExport/s);
+  assert.doesNotMatch(app, /href="\$\{page\.editUrl\}" target="_blank"/);
+});

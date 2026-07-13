@@ -1,0 +1,9 @@
+node_modules/
+release/
+data/
+output/
+.playwright-cli/
+server.log
+*.log
+p3-*.png
+.DS_Store

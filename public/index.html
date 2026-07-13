@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>HTML Mender 任务工作台</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="workspace" aria-labelledby="page-title">
+        <div class="mast">
+          <p class="eyebrow">Local HTML Mender</p>
+          <h1 id="page-title">HTML 任务工作台</h1>
+          <p class="summary">为每次工作命名，统一管理单页、多页 HTML 与完整 ZIP 项目。关闭应用后，任务和逐页版本仍会保留。</p>
+        </div>
+
+        <form id="upload-form" class="upload-panel">
+          <h2>上传课件文件</h2>
+          <label class="task-name-field">
+            <span>任务名称</span>
+            <input id="task-name" name="taskName" type="text" maxlength="80" placeholder="例如：七年级语文第一单元" required>
+          </label>
+          <label class="drop-zone" id="drop-zone">
+            <input id="asset-input" name="assets" type="file" multiple accept=".html,.htm,.zip,text/html,application/zip">
+            <span class="drop-icon" aria-hidden="true">+</span>
+            <span class="drop-title">选择或拖入 HTML / ZIP</span>
+            <span class="drop-note">支持单个 HTML、多个 HTML，或一个 ZIP 项目包。ZIP 会保留 assets、media、css、js 等资源目录。</span>
+          </label>
+          <div class="actions">
+            <button class="primary" id="upload-button" type="submit">创建编辑任务</button>
+          </div>
+          <p id="status" class="status" role="status">等待文件上传</p>
+        </form>
+      </section>
+
+      <section class="jobs-panel" aria-labelledby="jobs-title">
+        <div class="panel-head">
+          <div>
+            <h2 id="jobs-title">最近任务</h2>
+            <p class="recent-limit-note">默认显示最近 5 条；更多任务可展开查看。</p>
+          </div>
+          <div class="panel-actions">
+            <button class="ghost" id="back-to-all" type="button" hidden>返回全部</button>
+            <button class="ghost" id="show-all-tasks" type="button">查看更多</button>
+            <button class="ghost" id="refresh-button" type="button">刷新</button>
+          </div>
+        </div>
+        <div class="list-label">历史记录</div>
+        <div id="recent-tasks" class="jobs-list" aria-live="polite">
+          <div class="empty-state">还没有任务。请先在左侧创建一个命名任务。</div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

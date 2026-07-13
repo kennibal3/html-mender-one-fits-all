@@ -1,0 +1,74 @@
+{
+  "name": "html-mender-local-app",
+  "version": "0.2.0",
+  "description": "Local HTML and ZIP courseware editor with page version history.",
+  "author": "HTML Mender",
+  "private": true,
+  "type": "module",
+  "main": "desktop/main.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "desktop": "electron .",
+    "dist:win": "electron-builder --win nsis portable --x64",
+    "test": "node --test",
+    "audit": "npm audit --audit-level=high"
+  },
+  "dependencies": {
+    "archiver": "^8.0.0",
+    "express": "^5.2.1",
+    "multer": "^2.2.0",
+    "pinyin-pro": "^3.28.1",
+    "unzipper": "^0.12.5"
+  },
+  "devDependencies": {
+    "electron": "^42.5.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "cn.htmlmender.desktop",
+    "productName": "HTML Mender",
+    "asar": true,
+    "asarUnpack": [
+      "vendor/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "desktop/**/*",
+      "public/**/*",
+      "src/**/*",
+      "vendor/**/*",
+      "package.json",
+      "!data/**/*",
+      "!test/**/*",
+      "!docs/**/*",
+      "!server.log"
+    ],
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "artifactName": "HTML-Mender-Setup-${version}.${ext}",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "HTML Mender"
+    },
+    "portable": {
+      "artifactName": "HTML-Mender-Portable-${version}.${ext}",
+      "requestExecutionLevel": "user"
+    }
+  }
+}
