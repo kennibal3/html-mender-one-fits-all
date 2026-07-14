@@ -122,6 +122,9 @@ test("interaction editing uses a guided mode that locks unrelated page tools", a
   assert.match(runtime, /interactionWizardKind/);
   assert.match(runtime, /interactionWizardAction/);
   assert.match(runtime, /dataset\.interactionMode/);
+  assert.match(runtime, /const INTERACTION_NODE_ATTRIBUTE = "data-hsm-node-id"/);
+  assert.match(runtime, /getAttribute\?\.\(INTERACTION_NODE_ATTRIBUTE\)/);
+  assert.doesNotMatch(runtime, /getAttribute\?\.\(NODE_ATTRIBUTE\)/);
 
   assert.match(runtime, /\.shell\[data-interaction-mode="true"\] \.mode-switch/);
   assert.match(runtime, /\.shell\[data-interaction-mode="true"\] \.group-insert/);

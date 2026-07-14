@@ -170,6 +170,7 @@
   const MESSAGE_NAMESPACE = "HTML_SLIDE_MENDER";
   const EDITOR_BUILD_ID = "2026-07-14-guided-interactions-v1";
   const ROOT_ID = "html-slide-mender-root";
+  const INTERACTION_NODE_ATTRIBUTE = "data-hsm-node-id";
   const TEXT_SELECTOR = [
     "h1",
     "h2",
@@ -792,6 +793,7 @@
     MESSAGE_NAMESPACE,
     EDITOR_BUILD_ID,
     ROOT_ID,
+    INTERACTION_NODE_ATTRIBUTE,
     TEXT_SELECTOR,
     BLOCK_TEXT_SELECTOR,
     TEACHER_DIRECT_CONTENT_SELECTOR,
@@ -3853,6 +3855,7 @@ async rememberColor(value) {
   const {
     MESSAGE_NAMESPACE,
     ROOT_ID,
+    INTERACTION_NODE_ATTRIBUTE,
     TEXT_SELECTOR,
     BLOCK_TEXT_SELECTOR,
     TEACHER_DIRECT_CONTENT_SELECTOR,
@@ -4440,7 +4443,7 @@ isWrapperOnlyTextBox(element) {
 boxTemplate(item, rect, selected, editing, overflow) {
       const layoutMode = this.isLayoutMode?.() || item.type === "layout";
       const interactionMode = this.isInteractionSelectionMode?.() || false;
-      const interactionNodeId = item.element?.getAttribute?.(NODE_ATTRIBUTE) || "";
+      const interactionNodeId = item.element?.getAttribute?.(INTERACTION_NODE_ATTRIBUTE) || "";
       const isInteractionTrigger = interactionMode && interactionNodeId === this.pendingInteractionTriggerNodeId;
       const isInteractionTarget = interactionMode && interactionNodeId === this.interactionWizardTargetNodeId;
       const selectedLayoutCount = layoutMode && selected
@@ -10163,8 +10166,8 @@ escapeDraftCss(value) {
   const ns = window.HtmlSlideMenderExtension = window.HtmlSlideMenderExtension || {};
   ns.mixins = ns.mixins || {};
   const { escapeHtml, escapeAttr, normalizeText } = ns.utils;
+  const { INTERACTION_NODE_ATTRIBUTE } = ns.constants;
   const MANIFEST_SELECTOR = 'script[data-hsm-interaction-manifest]';
-  const NODE_ATTRIBUTE = "data-hsm-node-id";
   const INITIAL_ATTRIBUTE = "data-hsm-interaction-initial";
   const SCHEMA_VERSION = "1.3";
 
@@ -10842,14 +10845,14 @@ ensureInteractionElementId(element) {
       if (!element || element.nodeType !== Node.ELEMENT_NODE || !this.isPageElement?.(element)) {
         return "";
       }
-      const existing = element.getAttribute(NODE_ATTRIBUTE);
+      const existing = element.getAttribute(INTERACTION_NODE_ATTRIBUTE);
       if (existing) {
         return existing;
       }
       this.nextInteractionNodeId = (this.nextInteractionNodeId || 0) + 1;
       const random = globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${this.nextInteractionNodeId}`;
       const nodeId = `hsm-node-${random}`;
-      element.setAttribute(NODE_ATTRIBUTE, nodeId);
+      element.setAttribute(INTERACTION_NODE_ATTRIBUTE, nodeId);
       return nodeId;
     },
 
@@ -10857,8 +10860,8 @@ interactionElement(nodeId) {
       if (!nodeId) {
         return null;
       }
-      return Array.from(document.querySelectorAll(`[${NODE_ATTRIBUTE}]`))
-        .find((element) => element.getAttribute(NODE_ATTRIBUTE) === nodeId) || null;
+      return Array.from(document.querySelectorAll(`[${INTERACTION_NODE_ATTRIBUTE}]`))
+        .find((element) => element.getAttribute(INTERACTION_NODE_ATTRIBUTE) === nodeId) || null;
     },
 
 interactionElementLabel(element) {
@@ -11159,7 +11162,7 @@ interactionNodeExportPatches(sourceDocument) {
           sourcePath,
           kind: "interaction",
           interactionAttributes: {
-            [NODE_ATTRIBUTE]: nodeId,
+            [INTERACTION_NODE_ATTRIBUTE]: nodeId,
             [INITIAL_ATTRIBUTE]: isHiddenTarget ? "hidden" : ""
           }
         });
