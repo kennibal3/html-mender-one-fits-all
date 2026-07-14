@@ -168,7 +168,7 @@
 (() => {
   const ns = window.HtmlSlideMenderExtension = window.HtmlSlideMenderExtension || {};
   const MESSAGE_NAMESPACE = "HTML_SLIDE_MENDER";
-  const EDITOR_BUILD_ID = "2026-07-12-media-links-v3";
+  const EDITOR_BUILD_ID = "2026-07-13-progressive-sequence-v1";
   const ROOT_ID = "html-slide-mender-root";
   const TEXT_SELECTOR = [
     "h1",
@@ -372,6 +372,25 @@
       interactionChooseTrigger: "请先设置触发元素。",
       interactionChooseTarget: "请选择目标元素。",
       interactionDelete: "删除",
+      sequenceTitle: "逐步呈现",
+      sequenceHelp: "选中页面内容并加入步骤，放映时每次点击显示下一项。",
+      sequenceAdd: "加入步骤",
+      sequencePreview: "开始预览",
+      sequenceStopPreview: "结束预览",
+      sequenceNext: "下一步",
+      sequenceReset: "重新开始",
+      sequenceEmpty: "还没有步骤，请先选择文字、图片或其他内容。",
+      sequenceStepAdded: "已加入逐步呈现。",
+      sequenceAlreadyAdded: "选中的内容已经在逐步呈现中。",
+      sequenceStepDeleted: "步骤已删除。",
+      sequencePreviewStarted: "预览已开始，点击“下一步”查看效果。",
+      sequencePreviewEnded: "已结束预览，页面内容恢复显示。",
+      sequencePreviewComplete: "所有步骤已经显示。",
+      sequenceMoveUp: "上移",
+      sequenceMoveDown: "下移",
+      sequenceDelete: "删除",
+      sequenceStep: "步骤",
+      sequenceClickHint: "导出后可点击空白处，或按空格键、右方向键继续。",
       duplicate: "复制",
       delete: "删除",
       bringForward: "置顶",
@@ -546,6 +565,25 @@
       interactionChooseTrigger: "Set a trigger first.",
       interactionChooseTarget: "Select a target element.",
       interactionDelete: "Delete",
+      sequenceTitle: "Progressive reveal",
+      sequenceHelp: "Select page content and add it as a step. Each advance reveals the next item.",
+      sequenceAdd: "Add step",
+      sequencePreview: "Start preview",
+      sequenceStopPreview: "Stop preview",
+      sequenceNext: "Next step",
+      sequenceReset: "Start over",
+      sequenceEmpty: "No steps yet. Select text, an image, or another page element first.",
+      sequenceStepAdded: "Added to the progressive reveal.",
+      sequenceAlreadyAdded: "The selected content is already in the progressive reveal.",
+      sequenceStepDeleted: "Step deleted.",
+      sequencePreviewStarted: "Preview started. Use Next step to inspect the sequence.",
+      sequencePreviewEnded: "Preview stopped and page content restored.",
+      sequencePreviewComplete: "All steps are visible.",
+      sequenceMoveUp: "Move up",
+      sequenceMoveDown: "Move down",
+      sequenceDelete: "Delete",
+      sequenceStep: "Step",
+      sequenceClickHint: "After export, click empty space or press Space or Arrow Right to continue.",
       duplicate: "Duplicate",
       delete: "Delete",
       bringForward: "Bring front",
@@ -1176,6 +1214,117 @@
       color: #687c79;
       font-size: 11px;
       line-height: 1.4;
+    }
+
+    .sequence-section {
+      margin: 0 0 14px;
+      padding: 12px;
+      border: 1px solid #9fd8cf;
+      border-radius: 10px;
+      background: #f0fbf8;
+    }
+
+    .sequence-section-head,
+    .sequence-actions,
+    .sequence-step-head,
+    .sequence-step-controls {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .sequence-section-head {
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+
+    .sequence-section h3,
+    .interaction-subtitle {
+      margin: 0;
+      color: #0f5f59;
+      font-size: 13px;
+      line-height: 1.3;
+    }
+
+    .sequence-help,
+    .sequence-status {
+      margin: 0 0 9px;
+      color: #5d716e;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .sequence-actions {
+      flex-wrap: wrap;
+      margin-bottom: 9px;
+    }
+
+    .sequence-actions button {
+      flex: 1 1 88px;
+    }
+
+    .sequence-list {
+      display: grid;
+      gap: 7px;
+    }
+
+    .sequence-step {
+      padding: 8px;
+      border: 1px solid #c7e5e0;
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    .sequence-step.is-current {
+      border-color: #16877d;
+      box-shadow: 0 0 0 2px rgba(22, 135, 125, 0.12);
+    }
+
+    .sequence-step-head {
+      justify-content: space-between;
+      margin-bottom: 7px;
+    }
+
+    .sequence-step-head strong {
+      min-width: 0;
+      overflow: hidden;
+      color: #173b38;
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .sequence-step-order {
+      display: flex;
+      gap: 4px;
+    }
+
+    .sequence-step-order button {
+      min-width: 28px;
+      padding: 4px 6px;
+    }
+
+    .sequence-step-controls {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 82px auto;
+    }
+
+    .sequence-step-controls select,
+    .sequence-step-controls input {
+      width: 100%;
+      min-height: 30px;
+      box-sizing: border-box;
+      border: 1px solid #c7dcd8;
+      border-radius: 6px;
+      background: #ffffff;
+      color: #173b38;
+      padding: 4px 6px;
+      font: inherit;
+    }
+
+    .interaction-subtitle {
+      margin-bottom: 8px;
+      padding-top: 2px;
     }
 
     .edit-popover {
@@ -2273,6 +2422,7 @@ async exit() {
         return { ok: true, message: this.t("notActive") };
       }
 
+      this.stopSequencePreview?.({ silent: true });
       this.commitActiveText();
       this.active = false;
       this.selectedId = null;
@@ -2419,6 +2569,27 @@ async handleAction(action, button = null) {
           return;
         case "toggle-interactions":
           this.toggleInteractionPanel?.();
+          return;
+        case "add-sequence-step":
+          this.addSelectedItemsToSequence?.();
+          return;
+        case "move-sequence-step-up":
+          this.moveSequenceStep?.(button?.dataset?.sequenceStepId || "", -1);
+          return;
+        case "move-sequence-step-down":
+          this.moveSequenceStep?.(button?.dataset?.sequenceStepId || "", 1);
+          return;
+        case "delete-sequence-step":
+          this.deleteSequenceStep?.(button?.dataset?.sequenceStepId || "");
+          return;
+        case "preview-sequence":
+          this.startSequencePreview?.();
+          return;
+        case "advance-sequence-preview":
+          this.advanceSequencePreview?.();
+          return;
+        case "reset-sequence-preview":
+          this.resetSequencePreview?.();
           return;
         case "set-interaction-trigger":
           this.setInteractionTrigger?.();
@@ -3519,6 +3690,17 @@ bindUiEvents() {
       });
 
       this.shadow.addEventListener("change", (event) => {
+        const sequenceControl = event.target.closest("[data-sequence-control]");
+        if (sequenceControl) {
+          event.stopPropagation();
+          this.updateSequenceStep?.(
+            sequenceControl.dataset.sequenceStepId || "",
+            sequenceControl.dataset.sequenceControl || "",
+            sequenceControl.value
+          );
+          return;
+        }
+
         const mediaControl = event.target.closest("[data-media-control]");
         if (mediaControl) {
           event.stopPropagation();
@@ -4387,6 +4569,21 @@ template() {
             <button type="button" data-action="toggle-interactions" aria-label="${escapeAttr(this.t("exit"))}">×</button>
           </div>
           <p class="interaction-panel-copy">${escapeHtml(this.t("interactionHelp"))}</p>
+          <section class="sequence-section" aria-label="${escapeAttr(this.t("sequenceTitle"))}">
+            <div class="sequence-section-head">
+              <h3>${escapeHtml(this.t("sequenceTitle"))}</h3>
+              <button class="primary" type="button" data-action="add-sequence-step">${escapeHtml(this.t("sequenceAdd"))}</button>
+            </div>
+            <p class="sequence-help">${escapeHtml(this.t("sequenceHelp"))}</p>
+            <div class="sequence-actions">
+              <button type="button" data-action="preview-sequence">${escapeHtml(this.t("sequencePreview"))}</button>
+              <button type="button" data-action="advance-sequence-preview">${escapeHtml(this.t("sequenceNext"))}</button>
+              <button type="button" data-action="reset-sequence-preview">${escapeHtml(this.t("sequenceReset"))}</button>
+            </div>
+            <p class="sequence-status" data-role="sequence-status">${escapeHtml(this.t("sequenceClickHint"))}</p>
+            <div class="sequence-list" data-role="sequence-list"></div>
+          </section>
+          <h3 class="interaction-subtitle">${escapeHtml(this.t("interactionTitle"))}</h3>
           <p class="interaction-selection" data-role="interaction-selection">${escapeHtml(this.t("interactionNoSelection"))}</p>
           <p class="interaction-trigger-status" data-role="interaction-trigger-status">${escapeHtml(this.t("interactionChooseTrigger"))}</p>
           <div class="interaction-panel-settings">
@@ -7971,6 +8168,7 @@ async download(options = {}) {
     },
 
 async serializeCleanHtml(_mode = "basic") {
+      this.stopSequencePreview?.({ silent: true });
       const sourceHtmlForExport = typeof skillSourceHtml === "string" ? skillSourceHtml : "";
       if (sourceHtmlForExport.trim()) {
         const html = this.serializeSourceBasedHtml(sourceHtmlForExport);
@@ -9553,11 +9751,12 @@ escapeDraftCss(value) {
   const MANIFEST_SELECTOR = 'script[data-hsm-interaction-manifest]';
   const NODE_ATTRIBUTE = "data-hsm-node-id";
   const INITIAL_ATTRIBUTE = "data-hsm-interaction-initial";
-  const SCHEMA_VERSION = "1.2";
+  const SCHEMA_VERSION = "1.3";
 
   ns.mixins.interactions = {
 loadInteractionManifest() {
       this.interactions = [];
+      this.sequences = [];
       const node = document.querySelector(MANIFEST_SELECTOR);
       if (!node) {
         return;
@@ -9567,8 +9766,12 @@ loadInteractionManifest() {
         this.interactions = (Array.isArray(manifest.interactions) ? manifest.interactions : [])
           .map((interaction) => this.normalizeInteraction(interaction))
           .filter(Boolean);
+        this.sequences = (Array.isArray(manifest.sequences) ? manifest.sequences : [])
+          .map((sequence) => this.normalizeSequence(sequence))
+          .filter(Boolean);
       } catch (_error) {
         this.interactions = [];
+        this.sequences = [];
       }
     },
 
@@ -9612,7 +9815,280 @@ normalizeInteraction(interaction) {
       };
     },
 
+normalizeSequence(sequence) {
+      if (!sequence?.id || !Array.isArray(sequence.steps)) {
+        return null;
+      }
+      const seen = new Set();
+      const steps = sequence.steps.map((step, index) => {
+        const nodeId = String(step?.nodeId || "");
+        if (!nodeId || seen.has(nodeId)) {
+          return null;
+        }
+        seen.add(nodeId);
+        const effectType = ["fadeIn", "flyIn", "zoomIn"].includes(step.effect?.type)
+          ? step.effect.type
+          : "none";
+        return {
+          id: String(step.id || `${sequence.id}-step-${index + 1}`),
+          nodeId,
+          effect: {
+            type: effectType,
+            duration: Math.min(3000, Math.max(100, Number(step.effect?.duration) || 400))
+          },
+          record: { type: String(step.record?.type || "sequence.step") }
+        };
+      }).filter(Boolean);
+      if (!steps.length) {
+        return null;
+      }
+      return {
+        id: String(sequence.id),
+        name: String(sequence.name || this.t("sequenceTitle")),
+        trigger: {
+          type: "pageAdvance",
+          events: ["click", "Space", "ArrowRight"]
+        },
+        steps
+      };
+    },
+
+pageSequence() {
+      return this.sequences?.[0] || null;
+    },
+
+ensurePageSequence() {
+      const existing = this.pageSequence();
+      if (existing) {
+        return existing;
+      }
+      const sequence = {
+        id: `hsm-sequence-${globalThis.crypto?.randomUUID?.() || Date.now().toString(36)}`,
+        name: this.t("sequenceTitle"),
+        trigger: { type: "pageAdvance", events: ["click", "Space", "ArrowRight"] },
+        steps: []
+      };
+      this.sequences = [sequence];
+      return sequence;
+    },
+
+nextSequenceStepId(sequence) {
+      return `${sequence.id}-step-${globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${sequence.steps.length + 1}`}`;
+    },
+
+selectedSequenceItems() {
+      return (this.selectedItems?.() || [])
+        .filter((item) => item?.element && this.isPageElement?.(item.element))
+        .sort((first, second) => {
+          const firstRect = first.element.getBoundingClientRect();
+          const secondRect = second.element.getBoundingClientRect();
+          return Math.abs(firstRect.top - secondRect.top) > 8
+            ? firstRect.top - secondRect.top
+            : firstRect.left - secondRect.left;
+        });
+    },
+
+markInteractionDataDirty() {
+      this.stopSequencePreview?.({ silent: true });
+      this.interactionsDirty = true;
+      this.refreshInteractionPanel();
+      window.dispatchEvent(new CustomEvent("hsm-editor-dirty", { detail: { kind: "interaction" } }));
+    },
+
+addSelectedItemsToSequence() {
+      const items = this.selectedSequenceItems();
+      if (!items.length) {
+        this.toast(this.t("interactionNoSelection"));
+        return;
+      }
+      const sequence = this.ensurePageSequence();
+      const existing = new Set(sequence.steps.map((step) => step.nodeId));
+      const effect = this.selectedInteractionEffect();
+      let added = 0;
+      for (const item of items) {
+        const nodeId = this.ensureInteractionElementId(item.element);
+        if (!nodeId || existing.has(nodeId)) {
+          continue;
+        }
+        existing.add(nodeId);
+        sequence.steps.push({
+          id: this.nextSequenceStepId(sequence),
+          nodeId,
+          effect: { ...effect },
+          record: { type: "sequence.step" }
+        });
+        added += 1;
+      }
+      if (!added) {
+        this.toast(this.t("sequenceAlreadyAdded"));
+        return;
+      }
+      this.markInteractionDataDirty();
+      this.toast(this.t("sequenceStepAdded"));
+    },
+
+moveSequenceStep(stepId, direction) {
+      const sequence = this.pageSequence();
+      const index = sequence?.steps.findIndex((step) => step.id === stepId) ?? -1;
+      const nextIndex = index + Number(direction || 0);
+      if (!sequence || index < 0 || nextIndex < 0 || nextIndex >= sequence.steps.length) {
+        return;
+      }
+      const [step] = sequence.steps.splice(index, 1);
+      sequence.steps.splice(nextIndex, 0, step);
+      this.markInteractionDataDirty();
+    },
+
+updateSequenceStep(stepId, field, value) {
+      const step = this.pageSequence()?.steps.find((entry) => entry.id === stepId);
+      if (!step) {
+        return;
+      }
+      if (field === "effect") {
+        step.effect.type = ["fadeIn", "flyIn", "zoomIn"].includes(value) ? value : "none";
+      } else if (field === "duration") {
+        step.effect.duration = Math.min(3000, Math.max(100, Number(value) || 400));
+      } else {
+        return;
+      }
+      this.markInteractionDataDirty();
+    },
+
+deleteSequenceStep(stepId) {
+      const sequence = this.pageSequence();
+      const before = sequence?.steps.length || 0;
+      if (!sequence) {
+        return;
+      }
+      sequence.steps = sequence.steps.filter((step) => step.id !== stepId);
+      if (sequence.steps.length === before) {
+        return;
+      }
+      if (!sequence.steps.length) {
+        this.sequences = [];
+      }
+      this.markInteractionDataDirty();
+      this.toast(this.t("sequenceStepDeleted"));
+    },
+
+sequencePreviewEntry(step) {
+      const element = this.interactionElement(step.nodeId);
+      if (!element) {
+        return null;
+      }
+      return {
+        step,
+        element,
+        display: element.style.display,
+        hadAriaHidden: element.hasAttribute("aria-hidden"),
+        ariaHidden: element.getAttribute("aria-hidden")
+      };
+    },
+
+hideSequencePreviewEntry(entry) {
+      entry.element.style.display = "none";
+      entry.element.setAttribute("aria-hidden", "true");
+    },
+
+restoreSequencePreviewEntry(entry) {
+      if (entry.display) {
+        entry.element.style.display = entry.display;
+      } else {
+        entry.element.style.removeProperty("display");
+      }
+      if (entry.hadAriaHidden) {
+        entry.element.setAttribute("aria-hidden", entry.ariaHidden || "");
+      } else {
+        entry.element.removeAttribute("aria-hidden");
+      }
+    },
+
+playSequencePreviewEffect(entry) {
+      const type = entry.step.effect?.type || "none";
+      if (type === "none" || typeof entry.element.animate !== "function") {
+        return;
+      }
+      const keyframes = {
+        fadeIn: [{ opacity: 0 }, { opacity: 1 }],
+        flyIn: [{ opacity: 0, transform: "translateY(28px)" }, { opacity: 1, transform: "translateY(0)" }],
+        zoomIn: [{ opacity: 0, transform: "scale(0.9)" }, { opacity: 1, transform: "scale(1)" }]
+      }[type];
+      entry.element.animate(keyframes, {
+        duration: Math.min(3000, Math.max(100, Number(entry.step.effect?.duration) || 400)),
+        easing: "cubic-bezier(0.2, 0.8, 0.2, 1)"
+      });
+    },
+
+startSequencePreview() {
+      if (this.sequencePreview) {
+        this.stopSequencePreview();
+        return;
+      }
+      const entries = (this.pageSequence()?.steps || [])
+        .map((step) => this.sequencePreviewEntry(step))
+        .filter(Boolean);
+      if (!entries.length) {
+        this.toast(this.t("sequenceEmpty"));
+        return;
+      }
+      this.sequencePreview = { entries, index: 0 };
+      for (const entry of entries) {
+        this.hideSequencePreviewEntry(entry);
+      }
+      this.refreshInteractionPanel();
+      this.renderBoxes?.();
+      this.toast(this.t("sequencePreviewStarted"));
+    },
+
+advanceSequencePreview() {
+      if (!this.sequencePreview) {
+        this.startSequencePreview();
+      }
+      const state = this.sequencePreview;
+      const entry = state?.entries[state.index];
+      if (!entry) {
+        this.toast(this.t("sequencePreviewComplete"));
+        return;
+      }
+      this.restoreSequencePreviewEntry(entry);
+      this.playSequencePreviewEffect(entry);
+      state.index += 1;
+      this.refreshInteractionPanel();
+      this.renderBoxes?.();
+    },
+
+resetSequencePreview() {
+      if (!this.sequencePreview) {
+        this.startSequencePreview();
+        return;
+      }
+      for (const entry of this.sequencePreview.entries) {
+        this.hideSequencePreviewEntry(entry);
+      }
+      this.sequencePreview.index = 0;
+      this.refreshInteractionPanel();
+      this.renderBoxes?.();
+    },
+
+stopSequencePreview(options = {}) {
+      if (!this.sequencePreview) {
+        return;
+      }
+      for (const entry of this.sequencePreview.entries) {
+        this.restoreSequencePreviewEntry(entry);
+      }
+      this.sequencePreview = null;
+      this.refreshInteractionPanel();
+      this.renderBoxes?.();
+      if (!options.silent) {
+        this.toast(this.t("sequencePreviewEnded"));
+      }
+    },
+
 toggleInteractionPanel() {
+      if (this.interactionPanelOpen) {
+        this.stopSequencePreview?.({ silent: true });
+      }
       this.interactionPanelOpen = !this.interactionPanelOpen;
       this.refreshInteractionPanel();
       this.renderBoxes?.();
@@ -9881,6 +10357,20 @@ interactionManifest() {
           initialState: { ...interaction.initialState },
           effect: { ...interaction.effect },
           record: { ...interaction.record }
+        })),
+        sequences: this.sequences.map((sequence) => ({
+          id: sequence.id,
+          name: sequence.name,
+          trigger: {
+            type: "pageAdvance",
+            events: ["click", "Space", "ArrowRight"]
+          },
+          steps: sequence.steps.map((step) => ({
+            id: step.id,
+            nodeId: step.nodeId,
+            effect: { ...step.effect },
+            record: { ...step.record }
+          }))
         }))
       };
     },
@@ -9893,6 +10383,13 @@ interactionNodeExportPatches(sourceDocument) {
         }
         if (interaction.action?.targetId) {
           referenced.add(interaction.action.targetId);
+        }
+      }
+      for (const sequence of this.sequences) {
+        for (const step of sequence.steps) {
+          if (step.nodeId) {
+            referenced.add(step.nodeId);
+          }
         }
       }
       const patches = [];
@@ -9927,7 +10424,7 @@ interactionNodeExportPatches(sourceDocument) {
     },
 
 interactionRuntimeMarkup() {
-      if (!this.interactions.length) {
+      if (!this.interactions.length && !this.sequences.length) {
         return "";
       }
       const runtime = typeof skillInteractionRuntime === "string" ? skillInteractionRuntime.trim() : "";
@@ -10005,6 +10502,68 @@ interactionEffectLabel(effect) {
       }[effect?.type] || this.t("interactionEffectNone");
     },
 
+refreshSequencePanel() {
+      const list = this.shadow?.querySelector('[data-role="sequence-list"]');
+      if (!list) {
+        return;
+      }
+      const sequence = this.pageSequence();
+      const steps = sequence?.steps || [];
+      const preview = this.sequencePreview;
+      const add = this.shadow.querySelector('[data-action="add-sequence-step"]');
+      const previewButton = this.shadow.querySelector('[data-action="preview-sequence"]');
+      const next = this.shadow.querySelector('[data-action="advance-sequence-preview"]');
+      const reset = this.shadow.querySelector('[data-action="reset-sequence-preview"]');
+      const status = this.shadow.querySelector('[data-role="sequence-status"]');
+      if (add) {
+        add.disabled = !this.selectedSequenceItems().length || Boolean(preview);
+      }
+      if (previewButton) {
+        previewButton.disabled = !steps.length;
+        previewButton.textContent = this.t(preview ? "sequenceStopPreview" : "sequencePreview");
+      }
+      if (next) {
+        next.disabled = !preview || preview.index >= preview.entries.length;
+      }
+      if (reset) {
+        reset.disabled = !preview;
+      }
+      if (status) {
+        status.textContent = preview
+          ? `${this.t("sequenceStep")} ${Math.min(preview.index, preview.entries.length)} / ${preview.entries.length}`
+          : this.t("sequenceClickHint");
+      }
+      if (!steps.length) {
+        list.innerHTML = `<p class="interaction-empty">${escapeHtml(this.t("sequenceEmpty"))}</p>`;
+        return;
+      }
+      list.innerHTML = steps.map((step, index) => {
+        const element = this.interactionElement(step.nodeId);
+        const isCurrent = Boolean(preview && preview.index === index);
+        return `
+          <div class="sequence-step${isCurrent ? " is-current" : ""}" data-sequence-step-id="${escapeAttr(step.id)}">
+            <div class="sequence-step-head">
+              <strong>${index + 1}. ${escapeHtml(this.interactionElementLabel(element))}</strong>
+              <span class="sequence-step-order">
+                <button type="button" data-action="move-sequence-step-up" data-sequence-step-id="${escapeAttr(step.id)}" title="${escapeAttr(this.t("sequenceMoveUp"))}"${index === 0 ? " disabled" : ""}>↑</button>
+                <button type="button" data-action="move-sequence-step-down" data-sequence-step-id="${escapeAttr(step.id)}" title="${escapeAttr(this.t("sequenceMoveDown"))}"${index === steps.length - 1 ? " disabled" : ""}>↓</button>
+              </span>
+            </div>
+            <div class="sequence-step-controls">
+              <select data-sequence-control="effect" data-sequence-step-id="${escapeAttr(step.id)}" aria-label="${escapeAttr(this.t("interactionEffect"))}">
+                <option value="none"${step.effect.type === "none" ? " selected" : ""}>${escapeHtml(this.t("interactionEffectNone"))}</option>
+                <option value="fadeIn"${step.effect.type === "fadeIn" ? " selected" : ""}>${escapeHtml(this.t("interactionEffectFade"))}</option>
+                <option value="flyIn"${step.effect.type === "flyIn" ? " selected" : ""}>${escapeHtml(this.t("interactionEffectFly"))}</option>
+                <option value="zoomIn"${step.effect.type === "zoomIn" ? " selected" : ""}>${escapeHtml(this.t("interactionEffectZoom"))}</option>
+              </select>
+              <input type="number" min="100" max="3000" step="100" value="${escapeAttr(step.effect.duration)}" data-sequence-control="duration" data-sequence-step-id="${escapeAttr(step.id)}" aria-label="${escapeAttr(this.t("interactionDuration"))}">
+              <button type="button" data-action="delete-sequence-step" data-sequence-step-id="${escapeAttr(step.id)}">${escapeHtml(this.t("sequenceDelete"))}</button>
+            </div>
+          </div>
+        `;
+      }).join("");
+    },
+
 refreshInteractionPanel() {
       if (!this.shadow) {
         return;
@@ -10016,6 +10575,7 @@ refreshInteractionPanel() {
       }
       toggle?.setAttribute("aria-expanded", this.interactionPanelOpen ? "true" : "false");
       this.refreshInteractionPageOptions();
+      this.refreshSequencePanel();
 
       const item = this.selectedItem();
       const selected = this.shadow.querySelector('[data-role="interaction-selection"]');
@@ -10119,6 +10679,8 @@ refreshInteractionPanel() {
       this.interactionPanelOpen = false;
       this.pendingInteractionTriggerNodeId = "";
       this.interactions = [];
+      this.sequences = [];
+      this.sequencePreview = null;
       this.interactionsDirty = false;
       this.nextInteractionNodeId = 0;
       this.nextGroupId = 0;

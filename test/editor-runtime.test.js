@@ -106,7 +106,7 @@ test("editor runtime exposes page jump, modal, and reveal animation workflows", 
   assert.match(runtime, /goToPage/);
   assert.match(runtime, /openModal/);
   assert.match(runtime, /effect:/);
-  assert.match(runtime, /2026-07-12-media-links-v3/);
+  assert.match(runtime, /2026-07-13-progressive-sequence-v1/);
 
   assert.match(interactionRuntime, /navigateToPage\(/);
   assert.match(interactionRuntime, /openInteractionModal\(/);
@@ -116,6 +116,55 @@ test("editor runtime exposes page jump, modal, and reveal animation workflows", 
   assert.match(interactionRuntime, /Escape/);
   assert.match(interactionRuntime, /goToPage/);
   assert.match(interactionRuntime, /openModal/);
+});
+
+test("editor runtime exposes a teacher-friendly progressive reveal timeline", async () => {
+  const runtime = await readFile(
+    new URL("../vendor/html-slide-mender/assets/html-slide-mender-runtime.js", import.meta.url),
+    "utf8"
+  );
+  const interactionRuntime = await readFile(
+    new URL("../vendor/html-slide-mender/assets/html-slide-mender-interactions.js", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(runtime, /const SCHEMA_VERSION = "1\.3"/);
+  assert.match(runtime, /data-role="sequence-list"/);
+  assert.match(runtime, /data-action="add-sequence-step"/);
+  assert.match(runtime, /data-action="move-sequence-step-up"/);
+  assert.match(runtime, /data-action="move-sequence-step-down"/);
+  assert.match(runtime, /data-action="delete-sequence-step"/);
+  assert.match(runtime, /data-action="preview-sequence"/);
+  assert.match(runtime, /data-action="advance-sequence-preview"/);
+  assert.match(runtime, /data-action="reset-sequence-preview"/);
+  assert.match(runtime, /data-sequence-control="effect"/);
+  assert.match(runtime, /data-sequence-control="duration"/);
+  assert.match(runtime, /normalizeSequence\(/);
+  assert.match(runtime, /addSelectedItemsToSequence\(/);
+  assert.match(runtime, /moveSequenceStep\(/);
+  assert.match(runtime, /updateSequenceStep\(/);
+  assert.match(runtime, /deleteSequenceStep\(/);
+  assert.match(runtime, /startSequencePreview\(/);
+  assert.match(runtime, /advanceSequencePreview\(/);
+  assert.match(runtime, /resetSequencePreview\(/);
+  const serializerStart = runtime.indexOf("async serializeCleanHtml(");
+  const serializerEnd = runtime.indexOf("\n    },", serializerStart);
+  assert.ok(serializerStart >= 0 && serializerEnd > serializerStart, "serializer is missing");
+  assert.match(runtime.slice(serializerStart, serializerEnd), /stopSequencePreview/);
+  assert.match(runtime, /sequences: this\.sequences\.map/);
+  assert.match(runtime, /for \(const sequence of this\.sequences\)/);
+
+  assert.match(interactionRuntime, /const SCHEMA_VERSION = "1\.3"/);
+  assert.match(interactionRuntime, /initializeSequence\(/);
+  assert.match(interactionRuntime, /advanceSequence\(/);
+  assert.match(interactionRuntime, /resetSequence\(/);
+  assert.match(interactionRuntime, /shouldAdvanceSequence\(/);
+  assert.match(interactionRuntime, /event\.key === "ArrowRight"/);
+  assert.match(interactionRuntime, /event\.key === " "/);
+  assert.match(interactionRuntime, /sequence\.started/);
+  assert.match(interactionRuntime, /sequence\.step/);
+  assert.match(interactionRuntime, /sequence\.completed/);
+  assert.match(interactionRuntime, /isNativeControl\(event\.target\)/);
 });
 
 test("editor runtime exposes audio, media playback settings, and safe URL links", async () => {
@@ -128,7 +177,7 @@ test("editor runtime exposes audio, media playback settings, and safe URL links"
     "utf8"
   );
 
-  assert.match(runtime, /2026-07-12-media-links-v3/);
+  assert.match(runtime, /2026-07-13-progressive-sequence-v1/);
   assert.match(runtime, /audio\/mpeg/);
   assert.match(runtime, /audio\/wav/);
   assert.match(runtime, /audio\/ogg/);

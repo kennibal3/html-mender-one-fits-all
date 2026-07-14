@@ -4,22 +4,25 @@
   const NODE_ATTRIBUTE = "data-hsm-node-id";
   const HIDDEN_ATTRIBUTE = "data-hsm-interaction-hidden";
   const DISPLAY_ATTRIBUTE = "data-hsm-interaction-display";
-  const SCHEMA_VERSION = "1.2";
+  const SCHEMA_VERSION = "1.3";
   let activeModal = null;
+  const sequenceStates = new Map();
+  let sequenceListenersInstalled = false;
 
   function readManifest() {
     const node = document.querySelector(MANIFEST_SELECTOR);
     if (!node) {
-      return { schemaVersion: SCHEMA_VERSION, interactions: [] };
+      return { schemaVersion: SCHEMA_VERSION, interactions: [], sequences: [] };
     }
     try {
       const parsed = JSON.parse(node.textContent || "{}");
       return {
         schemaVersion: String(parsed.schemaVersion || SCHEMA_VERSION),
-        interactions: Array.isArray(parsed.interactions) ? parsed.interactions : []
+        interactions: Array.isArray(parsed.interactions) ? parsed.interactions : [],
+        sequences: Array.isArray(parsed.sequences) ? parsed.sequences : []
       };
     } catch (_error) {
-      return { schemaVersion: SCHEMA_VERSION, interactions: [] };
+      return { schemaVersion: SCHEMA_VERSION, interactions: [], sequences: [] };
     }
   }
 
@@ -32,7 +35,7 @@
   }
 
   function isNativeControl(element) {
-    return element?.matches?.("button,a,input,select,textarea,summary,[role='button']") || false;
+    return Boolean(element?.closest?.("button,a,input,select,textarea,summary,video,audio,iframe,[role='button'],[role='link'],[contenteditable='true']"));
   }
 
   function setVisible(element, visible) {
@@ -275,6 +278,135 @@
     }
   }
 
+  function emitSequenceEvent(sequence, type, payload = {}) {
+    const detail = {
+      schemaVersion: SCHEMA_VERSION,
+      eventId: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      type,
+      timestamp: new Date().toISOString(),
+      sequenceId: sequence.id || "",
+      stepId: payload.stepId || "",
+      targetId: payload.targetId || "",
+      action: "advanceSequence",
+      payload
+    };
+    window.dispatchEvent(new CustomEvent("hsm-interaction-event", { detail }));
+    try {
+      window.HtmlMenderInteractionAdapter?.emit?.(detail);
+    } catch (_error) {
+      // Platform recording must never block the lesson interaction.
+    }
+  }
+
+  function initializeSequence(sequence) {
+    if (!sequence?.id || !Array.isArray(sequence.steps)) {
+      return null;
+    }
+    const steps = sequence.steps
+      .map((step) => ({ step, element: findNode(step?.nodeId) }))
+      .filter((entry) => entry.step?.id && entry.element);
+    if (!steps.length) {
+      return null;
+    }
+    const state = { sequence, steps, index: 0, started: false, completed: false };
+    for (const entry of steps) {
+      setVisible(entry.element, false);
+    }
+    sequenceStates.set(sequence.id, state);
+    return state;
+  }
+
+  function sequenceState(sequenceOrId) {
+    const id = typeof sequenceOrId === "string" ? sequenceOrId : sequenceOrId?.id;
+    return sequenceStates.get(id) || (typeof sequenceOrId === "object" ? initializeSequence(sequenceOrId) : null);
+  }
+
+  function advanceSequence(sequenceOrId) {
+    const state = sequenceState(sequenceOrId);
+    if (!state || state.completed || state.index >= state.steps.length) {
+      return false;
+    }
+    if (!state.started) {
+      state.started = true;
+      emitSequenceEvent(state.sequence, "sequence.started", { stepCount: state.steps.length });
+    }
+    const entry = state.steps[state.index];
+    setVisible(entry.element, true);
+    playInteractionEffect(entry.element, entry.step.effect);
+    state.index += 1;
+    emitSequenceEvent(state.sequence, "sequence.step", {
+      stepId: entry.step.id,
+      targetId: entry.step.nodeId,
+      stepIndex: state.index,
+      stepCount: state.steps.length
+    });
+    if (state.index >= state.steps.length) {
+      state.completed = true;
+      emitSequenceEvent(state.sequence, "sequence.completed", { stepCount: state.steps.length });
+    }
+    return true;
+  }
+
+  function resetSequence(sequenceOrId) {
+    const state = sequenceState(sequenceOrId);
+    if (!state) {
+      return false;
+    }
+    for (const entry of state.steps) {
+      setVisible(entry.element, false);
+    }
+    state.index = 0;
+    state.started = false;
+    state.completed = false;
+    return true;
+  }
+
+  function nextActiveSequence() {
+    return Array.from(sequenceStates.values()).find((state) => !state.completed) || null;
+  }
+
+  function shouldAdvanceSequence(event) {
+    if (!event || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) {
+      return false;
+    }
+    if (activeModal || document.querySelector('[data-hsm-editor="skill-runtime"]')) {
+      return false;
+    }
+    if (isNativeControl(event.target)) {
+      return false;
+    }
+    return !event.target?.closest?.("[data-hsm-interaction-modal],[data-hsm-sequence-ignore]");
+  }
+
+  function installSequenceAdvanceListeners() {
+    if (sequenceListenersInstalled || !sequenceStates.size) {
+      return;
+    }
+    sequenceListenersInstalled = true;
+    document.addEventListener("click", (event) => {
+      if (!shouldAdvanceSequence(event)) {
+        return;
+      }
+      const state = nextActiveSequence();
+      if (state && advanceSequence(state.sequence)) {
+        event.preventDefault();
+      }
+    });
+    document.addEventListener("keydown", (event) => {
+      const advancesSequence = event.key === "ArrowRight" || event.key === " ";
+      if (!advancesSequence) {
+        return;
+      }
+      if (!shouldAdvanceSequence(event)) {
+        return;
+      }
+      const state = nextActiveSequence();
+      if (state && advanceSequence(state.sequence)) {
+        event.preventDefault();
+      }
+    });
+  }
+
   function activateInteraction(interaction) {
     const actionType = interaction.action?.type;
     if (actionType === "goToPage") {
@@ -353,7 +485,18 @@
         bound += 1;
       }
     }
-    return { active: true, bound, reducedMotion, schemaVersion: manifest.schemaVersion };
+    sequenceStates.clear();
+    for (const sequence of manifest.sequences) {
+      initializeSequence(sequence);
+    }
+    installSequenceAdvanceListeners();
+    return {
+      active: true,
+      bound,
+      sequences: sequenceStates.size,
+      reducedMotion,
+      schemaVersion: manifest.schemaVersion
+    };
   }
 
   window.HtmlMenderInteractions = {
@@ -366,7 +509,11 @@
     openExternalUrl,
     openInteractionModal,
     closeInteractionModal,
-    playInteractionEffect
+    playInteractionEffect,
+    initializeSequence,
+    advanceSequence,
+    resetSequence,
+    shouldAdvanceSequence
   };
 
   if (document.readyState === "loading") {
