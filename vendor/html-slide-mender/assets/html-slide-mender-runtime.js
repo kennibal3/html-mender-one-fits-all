@@ -168,7 +168,7 @@
 (() => {
   const ns = window.HtmlSlideMenderExtension = window.HtmlSlideMenderExtension || {};
   const MESSAGE_NAMESPACE = "HTML_SLIDE_MENDER";
-  const EDITOR_BUILD_ID = "2026-07-13-progressive-sequence-v1";
+  const EDITOR_BUILD_ID = "2026-07-14-guided-interactions-v1";
   const ROOT_ID = "html-slide-mender-root";
   const TEXT_SELECTOR = [
     "h1",
@@ -341,6 +341,48 @@
       interactions: "互动",
       interactionTitle: "互动设置",
       interactionHelp: "先选触发元素，再选目标元素。",
+      interactionStudio: "互动制作",
+      interactionExitMode: "退出互动",
+      interactionHomeTitle: "想让课件怎么互动？",
+      interactionHomeHelp: "选择一种常用方式，跟着步骤点击页面即可。",
+      interactionClickChoiceTitle: "点击互动",
+      interactionClickChoiceHelp: "点击文字、图片或按钮后显示内容、跳页或打开链接。",
+      interactionSequenceChoiceTitle: "逐步讲解",
+      interactionSequenceChoiceHelp: "按照讲课顺序，一项一项显示页面内容。",
+      interactionChooseTypeTitle: "选择点击后的结果",
+      interactionChooseTypeHelp: "先选择一种效果，下一步再到课件中点击对象。",
+      interactionActionToggle: "显示内容",
+      interactionActionToggleHelp: "适合答案揭晓、提示和补充内容。",
+      interactionActionModal: "打开弹窗",
+      interactionActionModalHelp: "在页面上方弹出说明、图片或视频。",
+      interactionActionPage: "跳转页面",
+      interactionActionPageHelp: "点击后前往指定课件页面。",
+      interactionActionUrl: "打开链接",
+      interactionActionUrlHelp: "点击后打开网页或其他外部链接。",
+      interactionPickTriggerTitle: "点击课件中的按钮",
+      interactionPickTriggerHelp: "请在页面中点击老师或学生将要点击的文字、图片或按钮。",
+      interactionPickTargetTitle: "点击需要显示的内容",
+      interactionPickTargetHelp: "请在页面中点击答案、提示、图片或需要弹出的内容。",
+      interactionChoosePageTitle: "选择要跳转的页面",
+      interactionEnterUrlTitle: "填写要打开的链接",
+      interactionReviewTitle: "确认互动关系",
+      interactionReviewHelp: "预览没有问题后，点击“完成”。",
+      interactionCurrentTrigger: "点击这里",
+      interactionCurrentTarget: "显示这个",
+      interactionLockedHelp: "互动制作中，文字、图片和位置编辑已暂时锁定。",
+      interactionStepLabel: "第 {current} 步，共 4 步",
+      interactionBack: "上一步",
+      interactionNext: "下一步",
+      interactionPreview: "预览",
+      interactionComplete: "完成",
+      interactionCancel: "取消制作",
+      interactionMoreSettings: "更多设置",
+      interactionLessSettings: "收起设置",
+      interactionBackHome: "返回互动首页",
+      interactionRecordsTitle: "本页已有互动",
+      interactionPreviewReady: "已在页面中标出点击对象和结果对象。",
+      interactionWizardIncomplete: "请先完成当前步骤。",
+      sequenceStudioHelp: "依次点击页面内容，系统会自动按点击顺序编号。",
       interactionSelected: "当前选中",
       interactionNoSelection: "请先在页面中选择一个元素",
       interactionSetTrigger: "设为点击元素",
@@ -534,6 +576,48 @@
       interactions: "Interaction",
       interactionTitle: "Interaction settings",
       interactionHelp: "Choose a trigger, then choose its target.",
+      interactionStudio: "Build interaction",
+      interactionExitMode: "Exit interactions",
+      interactionHomeTitle: "How should this page respond?",
+      interactionHomeHelp: "Choose a common pattern, then follow the guided steps on the page.",
+      interactionClickChoiceTitle: "Click interaction",
+      interactionClickChoiceHelp: "Show content, open a pop-up, jump to a page, or open a link.",
+      interactionSequenceChoiceTitle: "Progressive lesson",
+      interactionSequenceChoiceHelp: "Reveal page content one item at a time in teaching order.",
+      interactionChooseTypeTitle: "Choose what happens after the click",
+      interactionChooseTypeHelp: "Choose an outcome, then select the page element in the next step.",
+      interactionActionToggle: "Show content",
+      interactionActionToggleHelp: "Best for answers, hints, and supporting content.",
+      interactionActionModal: "Open pop-up",
+      interactionActionModalHelp: "Show text, an image, or video above the page.",
+      interactionActionPage: "Jump to page",
+      interactionActionPageHelp: "Open another page in the lesson.",
+      interactionActionUrl: "Open link",
+      interactionActionUrlHelp: "Open a website or another external link.",
+      interactionPickTriggerTitle: "Select what learners will click",
+      interactionPickTriggerHelp: "Click the text, image, or button that starts the interaction.",
+      interactionPickTargetTitle: "Select what should appear",
+      interactionPickTargetHelp: "Click the answer, hint, image, or pop-up content.",
+      interactionChoosePageTitle: "Choose the destination page",
+      interactionEnterUrlTitle: "Enter the destination link",
+      interactionReviewTitle: "Review the interaction",
+      interactionReviewHelp: "Preview it, then choose Complete.",
+      interactionCurrentTrigger: "Click here",
+      interactionCurrentTarget: "Show this",
+      interactionLockedHelp: "Text, media, and layout editing are locked while building an interaction.",
+      interactionStepLabel: "Step {current} of 4",
+      interactionBack: "Back",
+      interactionNext: "Next",
+      interactionPreview: "Preview",
+      interactionComplete: "Complete",
+      interactionCancel: "Cancel",
+      interactionMoreSettings: "More settings",
+      interactionLessSettings: "Hide settings",
+      interactionBackHome: "Back to interaction home",
+      interactionRecordsTitle: "Interactions on this page",
+      interactionPreviewReady: "The trigger and result are highlighted on the page.",
+      interactionWizardIncomplete: "Complete the current step first.",
+      sequenceStudioHelp: "Click page content in teaching order; each item is numbered automatically.",
       interactionSelected: "Selected",
       interactionNoSelection: "Select an element on the page first",
       interactionSetTrigger: "Set click trigger",
@@ -1076,20 +1160,46 @@
 
     .interaction-panel {
       position: fixed;
-      top: 78px;
+      top: 84px;
+      bottom: 72px;
       right: 16px;
-      width: min(340px, calc(100vw - 32px));
-      max-height: calc(100vh - 150px);
-      overflow: auto;
-      padding: 14px;
+      display: flex;
+      width: min(360px, calc(100vw - 32px));
+      max-height: none;
+      overflow: hidden;
+      padding: 0;
       border: 1px solid #b7d8d3;
-      border-radius: 10px;
+      border-radius: 12px;
       background: rgba(250, 255, 253, 0.98);
       color: #173b38;
       box-shadow: 0 18px 48px rgba(15, 64, 60, 0.2);
       pointer-events: auto;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      flex-direction: column;
       z-index: 5;
+    }
+
+    .interaction-panel-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      padding: 0 16px 16px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .interaction-panel-footer {
+      display: flex;
+      flex: 0 0 auto;
+      justify-content: flex-end;
+      gap: 8px;
+      min-height: 58px;
+      padding: 11px 16px;
+      border-top: 1px solid #d6e8e5;
+      background: #ffffff;
+    }
+
+    .interaction-panel-footer:empty {
+      display: none;
     }
 
     .interaction-panel[hidden] {
@@ -1106,14 +1216,180 @@
 
     .interaction-panel-head {
       justify-content: space-between;
-      margin-bottom: 10px;
+      flex: 0 0 auto;
+      min-height: 54px;
+      margin-bottom: 0;
+      padding: 0 16px;
+      border-bottom: 1px solid #d6e8e5;
+      background: #ffffff;
     }
 
     .interaction-panel h2 {
       margin: 0;
       color: #0f5f59;
-      font-size: 15px;
+      font-size: 16px;
       line-height: 1.25;
+    }
+
+    .interaction-lock-note {
+      margin: 12px 0;
+      padding: 9px 11px;
+      border-radius: 8px;
+      background: #e9f4ff;
+      color: #194f8c;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .interaction-home-copy {
+      padding: 14px 0 6px;
+    }
+
+    .interaction-home-copy h3,
+    .interaction-wizard-copy h3 {
+      margin: 0 0 5px;
+      color: #173b38;
+      font-size: 16px;
+      line-height: 1.35;
+    }
+
+    .interaction-home-copy p,
+    .interaction-wizard-copy p {
+      margin: 0;
+      color: #637673;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .interaction-home-choices,
+    .interaction-type-choices {
+      display: grid;
+      gap: 9px;
+      margin: 10px 0 16px;
+    }
+
+    .interaction-home-choice,
+    .interaction-type-choice {
+      display: grid;
+      width: 100%;
+      min-height: 78px;
+      padding: 12px 13px;
+      border: 1px solid #cfe1de;
+      border-radius: 10px;
+      background: #ffffff;
+      color: #173b38;
+      text-align: left;
+      align-content: center;
+      gap: 3px;
+    }
+
+    .interaction-home-choice:hover,
+    .interaction-type-choice:hover,
+    .interaction-type-choice.is-active {
+      border-color: #16877d;
+      background: #effaf7;
+      box-shadow: 0 0 0 2px rgba(22, 135, 125, 0.1);
+    }
+
+    .interaction-choice-title {
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .interaction-choice-help {
+      color: #637673;
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.45;
+    }
+
+    .interaction-wizard-progress {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 14px 0 12px;
+      color: #0f5f59;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .interaction-wizard-progress::after {
+      height: 5px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #16877d var(--wizard-progress, 25%), #dcebe8 var(--wizard-progress, 25%));
+      content: "";
+      flex: 1;
+    }
+
+    .interaction-wizard-body {
+      display: grid;
+      gap: 10px;
+    }
+
+    .interaction-selection-summary {
+      display: grid;
+      gap: 7px;
+      margin: 10px 0;
+      padding: 10px;
+      border: 1px solid #d6e8e5;
+      border-radius: 9px;
+      background: #ffffff;
+      color: #425754;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .interaction-selection-summary strong {
+      color: #173b38;
+    }
+
+    .interaction-advanced {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #d6e8e5;
+    }
+
+    .interaction-advanced-toggle {
+      width: 100%;
+    }
+
+    .interaction-records {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid #d6e8e5;
+    }
+
+    .interaction-records h3 {
+      margin: 0 0 8px;
+      color: #0f5f59;
+      font-size: 12px;
+    }
+
+    .shell[data-interaction-mode="true"] .mode-switch,
+    .shell[data-interaction-mode="true"] .group-insert,
+    .shell[data-interaction-mode="true"] .group-default,
+    .shell[data-interaction-mode="true"] .summary,
+    .shell[data-interaction-mode="true"] .edit-popover {
+      display: none !important;
+    }
+
+    .shell[data-interaction-mode="true"] .toolbar-body {
+      justify-content: flex-end;
+    }
+
+    .shell[data-interaction-mode="true"] .toolbar [data-action="toggle-interactions"] {
+      border-color: #b42318;
+      background: #fff4f2;
+      color: #9f1c13;
+    }
+
+    @media (max-width: 720px) {
+      .interaction-panel {
+        top: 72px;
+        right: 8px;
+        bottom: 64px;
+        width: min(320px, calc(100vw - 16px));
+      }
     }
 
     .interaction-panel-copy,
@@ -2067,6 +2343,57 @@
       box-shadow: 0 0 0 3px rgba(31, 111, 255, 0.14);
     }
 
+    .shell[data-interaction-mode="true"] .box {
+      border-color: transparent;
+      background: transparent;
+      box-shadow: none;
+      cursor: crosshair;
+    }
+
+    .shell[data-interaction-mode="true"] .box:hover {
+      border-style: solid;
+      border-color: #1f6fff;
+      background: rgba(31, 111, 255, 0.045);
+      box-shadow: 0 0 0 3px rgba(31, 111, 255, 0.14);
+    }
+
+    .shell[data-interaction-mode="true"] .box.is-interaction-trigger {
+      border-style: solid;
+      border-color: #1f6fff;
+      background: rgba(31, 111, 255, 0.07);
+      box-shadow: 0 0 0 4px rgba(31, 111, 255, 0.18);
+    }
+
+    .shell[data-interaction-mode="true"] .box.is-interaction-target {
+      border-style: solid;
+      border-color: #ea7c18;
+      background: rgba(234, 124, 24, 0.07);
+      box-shadow: 0 0 0 4px rgba(234, 124, 24, 0.18);
+    }
+
+    .shell[data-interaction-mode="true"] .box.is-interaction-trigger .box-label,
+    .shell[data-interaction-mode="true"] .box.is-interaction-target .box-label {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .shell[data-interaction-mode="true"] .box.is-interaction-trigger .box-label {
+      background: #1f6fff;
+    }
+
+    .shell[data-interaction-mode="true"] .box.is-interaction-target .box-label {
+      background: #c85f08;
+    }
+
+    .shell[data-interaction-mode="true"] .layout-handle,
+    .shell[data-interaction-mode="true"] .layout-group-selection {
+      display: none !important;
+    }
+
+    .shell[data-interaction-mode="true"] [data-role="sequence-workspace"] [data-action="add-sequence-step"] {
+      display: none;
+    }
+
     .box-image {
       border-color: transparent;
       background: transparent;
@@ -2570,6 +2897,33 @@ async handleAction(action, button = null) {
         case "toggle-interactions":
           this.toggleInteractionPanel?.();
           return;
+        case "begin-click-interaction":
+          this.beginInteractionWizard?.("click");
+          return;
+        case "begin-sequence-interaction":
+          this.beginInteractionWizard?.("sequence");
+          return;
+        case "choose-interaction-action":
+          this.chooseInteractionWizardAction?.(button?.dataset?.interactionChoice || "");
+          return;
+        case "interaction-wizard-back":
+          this.backInteractionWizard?.();
+          return;
+        case "interaction-wizard-next":
+          this.advanceInteractionWizard?.();
+          return;
+        case "interaction-wizard-preview":
+          this.previewInteractionWizard?.();
+          return;
+        case "interaction-wizard-complete":
+          this.completeInteractionWizard?.();
+          return;
+        case "interaction-wizard-cancel":
+          this.cancelInteractionWizard?.({ exit: button?.dataset?.exitInteractionMode === "true" });
+          return;
+        case "toggle-interaction-advanced":
+          this.toggleInteractionAdvanced?.();
+          return;
         case "add-sequence-step":
           this.addSelectedItemsToSequence?.();
           return;
@@ -3007,6 +3361,15 @@ summaryText() {
         return;
       }
 
+      if (this.isInteractionSelectionMode?.()) {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          this.cancelInteractionWizard?.({ exit: true });
+        }
+        return;
+      }
+
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -3067,6 +3430,10 @@ summaryText() {
 
 handleDocumentPointerDown(event) {
       if (!this.active) {
+        return;
+      }
+
+      if (this.isInteractionSelectionMode?.()) {
         return;
       }
 
@@ -3547,6 +3914,7 @@ installUi() {
       document.documentElement.appendChild(this.host);
       this.installVendorStyles();
 
+      this.shell = this.shadow.querySelector("[data-role='shell']");
       this.layer = this.shadow.querySelector("[data-role='layer']");
       this.toolbar = this.shadow.querySelector("[data-role='toolbar']");
       this.editPopover = this.shadow.querySelector("[data-role='edit-popover']");
@@ -3566,6 +3934,7 @@ removeUi() {
       this.host?.remove();
       this.host = null;
       this.shadow = null;
+      this.shell = null;
       this.layer = null;
       this.toolbar = null;
       this.editPopover = null;
@@ -3690,6 +4059,16 @@ bindUiEvents() {
       });
 
       this.shadow.addEventListener("change", (event) => {
+        const wizardControl = event.target.closest("[data-wizard-control]");
+        if (wizardControl) {
+          event.stopPropagation();
+          this.updateInteractionWizardControl?.(
+            wizardControl.dataset.wizardControl || "",
+            wizardControl.type === "checkbox" ? wizardControl.checked : wizardControl.value
+          );
+          return;
+        }
+
         const sequenceControl = event.target.closest("[data-sequence-control]");
         if (sequenceControl) {
           event.stopPropagation();
@@ -3728,6 +4107,17 @@ bindUiEvents() {
       });
 
       this.shadow.addEventListener("input", (event) => {
+        const wizardControl = event.target.closest("[data-wizard-control]");
+        if (wizardControl) {
+          event.stopPropagation();
+          this.updateInteractionWizardControl?.(
+            wizardControl.dataset.wizardControl || "",
+            wizardControl.type === "checkbox" ? wizardControl.checked : wizardControl.value,
+            { refresh: false }
+          );
+          return;
+        }
+
         const fontSize = event.target.closest("[data-control='fontSize']");
         if (fontSize?.dataset.uiKit === "combo") {
           return;
@@ -3793,6 +4183,12 @@ bindUiEvents() {
         if (!item) {
           return;
         }
+        if (this.isInteractionSelectionMode?.()) {
+          this.closeOpenMenus();
+          this.selectItem(item.id);
+          this.handleInteractionCanvasSelection?.(item);
+          return;
+        }
         if (this.isLayoutMode?.()) {
           if (performance.now() < (this.suppressLayoutClickUntil || 0)) {
             return;
@@ -3820,6 +4216,11 @@ bindUiEvents() {
           return;
         }
         const item = this.items.get(box.dataset.itemId);
+        if (this.isInteractionSelectionMode?.()) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
         if (this.isLayoutMode?.()) {
           if (!item) {
             return;
@@ -4038,19 +4439,26 @@ isWrapperOnlyTextBox(element) {
 
 boxTemplate(item, rect, selected, editing, overflow) {
       const layoutMode = this.isLayoutMode?.() || item.type === "layout";
+      const interactionMode = this.isInteractionSelectionMode?.() || false;
+      const interactionNodeId = item.element?.getAttribute?.(NODE_ATTRIBUTE) || "";
+      const isInteractionTrigger = interactionMode && interactionNodeId === this.pendingInteractionTriggerNodeId;
+      const isInteractionTarget = interactionMode && interactionNodeId === this.interactionWizardTargetNodeId;
       const selectedLayoutCount = layoutMode && selected
         ? (this.selectedLayoutItemsFor?.(item).length || 1)
         : 0;
       const showIndividualHandles = selectedLayoutCount <= 1 ||
         (this.normalizeLayoutToolMode?.(this.layoutToolMode) || "moveScale") === "size";
       const locked = this.isItemLocked?.(item) || false;
-      const typeLabel = layoutMode
+      const defaultTypeLabel = layoutMode
         ? this.t("layoutLabel")
         : (item.type === "text"
           ? this.t("textLabel")
           : (item.imageMode === "video"
             ? this.t("videoLabel")
             : (item.imageMode === "audio" ? this.t("audioLabel") : this.t("imageLabel"))));
+      const typeLabel = isInteractionTrigger
+        ? this.t("interactionCurrentTrigger")
+        : (isInteractionTarget ? this.t("interactionCurrentTarget") : defaultTypeLabel);
       const positionLabel = item.positioned ? ` · ${this.t("positioned")}` : "";
       const offsetLabel = layoutMode ? this.layoutOffsetLabel?.(item) || "" : "";
       const lockedLabel = locked ? ` · ${this.t("lockElement")}` : "";
@@ -4060,6 +4468,8 @@ boxTemplate(item, rect, selected, editing, overflow) {
         layoutMode && (this.normalizeLayoutToolMode?.(this.layoutToolMode) || "moveScale") === "size" ? "is-layout-size-mode" : "",
         item.positioned ? "is-positioned" : "",
         locked ? "is-locked" : "",
+        isInteractionTrigger ? "is-interaction-trigger" : "",
+        isInteractionTarget ? "is-interaction-target" : "",
         selected ? "is-selected" : "",
         selected && item.id === this.selectedId ? "is-primary" : "",
         editing ? "is-editing" : "",
@@ -4399,6 +4809,12 @@ refreshExportModeControl() {
         return;
       }
 
+      if (this.isInteractionSelectionMode?.()) {
+        this.editPopover.hidden = true;
+        delete this.editPopover.dataset.itemId;
+        return;
+      }
+
 	      const selectionType = item && this.isLayoutMode?.() ? "layout" : (item?.type || "none");
 	      this.editPopover.dataset.selection = selectionType;
 	      if (selectionType === "layout") {
@@ -4526,6 +4942,7 @@ toast(message) {
 template() {
       return `
         <style>${EDITOR_CSS}</style>
+        <div class="shell" data-role="shell" data-interaction-mode="false">
         <div class="toolbar" data-role="toolbar">
           <button class="collapse" type="button" data-action="collapse" title="${escapeAttr(this.t("collapseTitle"))}">
             <span class="brand-mark" aria-hidden="true">P</span>
@@ -4563,60 +4980,57 @@ template() {
           </div>
         </div>
 
-        <aside class="interaction-panel" data-role="interaction-panel" aria-label="${escapeAttr(this.t("interactionTitle"))}" hidden>
+        <aside class="interaction-panel" data-role="interaction-panel" aria-label="${escapeAttr(this.t("interactionStudio"))}" hidden>
           <div class="interaction-panel-head">
-            <h2>${escapeHtml(this.t("interactionTitle"))}</h2>
-            <button type="button" data-action="toggle-interactions" aria-label="${escapeAttr(this.t("exit"))}">×</button>
+            <h2 data-role="interaction-panel-title">${escapeHtml(this.t("interactionStudio"))}</h2>
+            <button type="button" data-action="interaction-wizard-cancel" data-exit-interaction-mode="true" aria-label="${escapeAttr(this.t("interactionExitMode"))}">×</button>
           </div>
-          <p class="interaction-panel-copy">${escapeHtml(this.t("interactionHelp"))}</p>
-          <section class="sequence-section" aria-label="${escapeAttr(this.t("sequenceTitle"))}">
-            <div class="sequence-section-head">
-              <h3>${escapeHtml(this.t("sequenceTitle"))}</h3>
-              <button class="primary" type="button" data-action="add-sequence-step">${escapeHtml(this.t("sequenceAdd"))}</button>
-            </div>
-            <p class="sequence-help">${escapeHtml(this.t("sequenceHelp"))}</p>
-            <div class="sequence-actions">
-              <button type="button" data-action="preview-sequence">${escapeHtml(this.t("sequencePreview"))}</button>
-              <button type="button" data-action="advance-sequence-preview">${escapeHtml(this.t("sequenceNext"))}</button>
-              <button type="button" data-action="reset-sequence-preview">${escapeHtml(this.t("sequenceReset"))}</button>
-            </div>
-            <p class="sequence-status" data-role="sequence-status">${escapeHtml(this.t("sequenceClickHint"))}</p>
-            <div class="sequence-list" data-role="sequence-list"></div>
-          </section>
-          <h3 class="interaction-subtitle">${escapeHtml(this.t("interactionTitle"))}</h3>
-          <p class="interaction-selection" data-role="interaction-selection">${escapeHtml(this.t("interactionNoSelection"))}</p>
-          <p class="interaction-trigger-status" data-role="interaction-trigger-status">${escapeHtml(this.t("interactionChooseTrigger"))}</p>
-          <div class="interaction-panel-settings">
-            <label>${escapeHtml(this.t("interactionPage"))}
-              <select data-role="interaction-page-select"></select>
-            </label>
-            <label>${escapeHtml(this.t("interactionEffect"))}
-              <select data-role="interaction-effect">
-                <option value="none">${escapeHtml(this.t("interactionEffectNone"))}</option>
-                <option value="fadeIn">${escapeHtml(this.t("interactionEffectFade"))}</option>
-                <option value="flyIn">${escapeHtml(this.t("interactionEffectFly"))}</option>
-                <option value="zoomIn">${escapeHtml(this.t("interactionEffectZoom"))}</option>
-              </select>
-            </label>
-            <label>${escapeHtml(this.t("interactionDuration"))}
-              <input data-role="interaction-duration" type="number" min="100" max="3000" step="100" value="400">
-            </label>
-            <label>${escapeHtml(this.t("interactionUrl"))}
-              <input data-role="interaction-url-input" type="url" inputmode="url" placeholder="${escapeAttr(this.t("interactionUrlPlaceholder"))}">
-            </label>
-            <label><span>${escapeHtml(this.t("interactionNewWindow"))}</span>
-              <input data-role="interaction-new-window" type="checkbox" checked>
-            </label>
+          <div class="interaction-panel-body">
+            <p class="interaction-lock-note">${escapeHtml(this.t("interactionLockedHelp"))}</p>
+
+            <section data-role="interaction-home">
+              <div class="interaction-home-copy">
+                <h3>${escapeHtml(this.t("interactionHomeTitle"))}</h3>
+                <p>${escapeHtml(this.t("interactionHomeHelp"))}</p>
+              </div>
+              <div class="interaction-home-choices">
+                <button class="interaction-home-choice" type="button" data-action="begin-click-interaction">
+                  <span class="interaction-choice-title">${escapeHtml(this.t("interactionClickChoiceTitle"))}</span>
+                  <span class="interaction-choice-help">${escapeHtml(this.t("interactionClickChoiceHelp"))}</span>
+                </button>
+                <button class="interaction-home-choice" type="button" data-action="begin-sequence-interaction">
+                  <span class="interaction-choice-title">${escapeHtml(this.t("interactionSequenceChoiceTitle"))}</span>
+                  <span class="interaction-choice-help">${escapeHtml(this.t("interactionSequenceChoiceHelp"))}</span>
+                </button>
+              </div>
+            </section>
+
+            <section data-role="interaction-wizard" hidden>
+              <div class="interaction-wizard-progress" data-role="interaction-wizard-step"></div>
+              <div class="interaction-wizard-body" data-role="interaction-wizard-body"></div>
+            </section>
+
+            <section class="sequence-section" data-role="sequence-workspace" aria-label="${escapeAttr(this.t("sequenceTitle"))}" hidden>
+              <div class="sequence-section-head">
+                <h3>${escapeHtml(this.t("sequenceTitle"))}</h3>
+                <button class="primary" type="button" data-action="add-sequence-step">${escapeHtml(this.t("sequenceAdd"))}</button>
+              </div>
+              <p class="sequence-help">${escapeHtml(this.t("sequenceStudioHelp"))}</p>
+              <div class="sequence-actions">
+                <button type="button" data-action="preview-sequence">${escapeHtml(this.t("sequencePreview"))}</button>
+                <button type="button" data-action="advance-sequence-preview">${escapeHtml(this.t("sequenceNext"))}</button>
+                <button type="button" data-action="reset-sequence-preview">${escapeHtml(this.t("sequenceReset"))}</button>
+              </div>
+              <p class="sequence-status" data-role="sequence-status">${escapeHtml(this.t("sequenceClickHint"))}</p>
+              <div class="sequence-list" data-role="sequence-list"></div>
+            </section>
+
+            <section class="interaction-records" data-role="interaction-records">
+              <h3>${escapeHtml(this.t("interactionRecordsTitle"))}</h3>
+              <div class="interaction-list" data-role="interaction-list"></div>
+            </section>
           </div>
-          <div class="interaction-panel-actions">
-            <button type="button" data-action="set-interaction-trigger">${escapeHtml(this.t("interactionSetTrigger"))}</button>
-            <button class="primary" type="button" data-action="create-toggle-interaction">${escapeHtml(this.t("interactionCreateToggle"))}</button>
-            <button type="button" data-action="create-modal-interaction">${escapeHtml(this.t("interactionCreateModal"))}</button>
-            <button type="button" data-action="create-page-jump-interaction">${escapeHtml(this.t("interactionCreatePageJump"))}</button>
-            <button type="button" data-action="create-url-interaction">${escapeHtml(this.t("interactionCreateUrl"))}</button>
-            <button type="button" data-action="clear-interaction-trigger">${escapeHtml(this.t("interactionClearTrigger"))}</button>
-          </div>
-          <div class="interaction-list" data-role="interaction-list"></div>
+          <div class="interaction-panel-footer" data-role="interaction-wizard-footer"></div>
         </aside>
 
         <div class="edit-popover" data-role="edit-popover" data-selection="none" hidden>
@@ -4728,6 +5142,7 @@ template() {
         <div class="color-menu" data-role="color-menu" hidden></div>
         <div class="toast" data-role="toast" aria-live="polite"></div>
         <input class="file-input" data-role="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/ogg,audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/aac">
+        </div>
       `;
     }
   };
@@ -10085,13 +10500,342 @@ stopSequencePreview(options = {}) {
       }
     },
 
-toggleInteractionPanel() {
-      if (this.interactionPanelOpen) {
-        this.stopSequencePreview?.({ silent: true });
+isInteractionSelectionMode() {
+      return Boolean(this.interactionModeActive);
+    },
+
+enterInteractionMode() {
+      if (this.interactionModeActive) {
+        this.interactionPanelOpen = true;
+        this.refreshInteractionPanel();
+        return;
       }
-      this.interactionPanelOpen = !this.interactionPanelOpen;
+      this.finishLayoutMarquee?.(true);
+      this.commitActiveText?.();
+      this.closeOpenMenus?.();
+      this.interactionPreviousEditorMode = this.editMode || "content";
+      this.interactionPreviousShowBoxes = this.showBoxes;
+      this.editMode = "content";
+      this.showBoxes = true;
+      this.interactionModeActive = true;
+      this.interactionPanelOpen = true;
+      this.resetInteractionWizardState();
+      if (this.shell) {
+        this.shell.dataset.interactionMode = "true";
+      }
+      this.editPopover && (this.editPopover.hidden = true);
+      this.clearSelection?.();
+      this.refreshToolbar?.();
+      this.scheduleScan?.(0);
+      this.renderBoxes?.();
+    },
+
+leaveInteractionMode() {
+      this.stopSequencePreview?.({ silent: true });
+      clearTimeout(this.interactionPreviewTimer);
+      this.interactionPreviewTimer = 0;
+      this.interactionModeActive = false;
+      this.interactionPanelOpen = false;
+      this.editMode = this.interactionPreviousEditorMode || "content";
+      this.showBoxes = this.interactionPreviousShowBoxes !== false;
+      this.resetInteractionWizardState();
+      if (this.shell) {
+        this.shell.dataset.interactionMode = "false";
+      }
+      this.clearSelection?.();
+      this.refreshToolbar?.();
+      this.scheduleScan?.(0);
+      this.renderBoxes?.();
+    },
+
+toggleInteractionPanel() {
+      if (this.interactionModeActive) {
+        this.leaveInteractionMode();
+        return;
+      }
+      this.enterInteractionMode();
+    },
+
+resetInteractionWizardState() {
+      this.pendingInteractionTriggerNodeId = "";
+      this.interactionWizardTargetNodeId = "";
+      this.interactionWizardKind = "";
+      this.interactionWizardStep = 0;
+      this.interactionWizardAction = "";
+      this.interactionWizardPageId = "";
+      this.interactionWizardUrl = "";
+      this.interactionWizardNewWindow = true;
+      this.interactionWizardEffect = "none";
+      this.interactionWizardDuration = 400;
+      this.interactionAdvancedOpen = false;
+    },
+
+beginInteractionWizard(kind) {
+      if (!this.interactionModeActive) {
+        this.enterInteractionMode();
+      }
+      this.stopSequencePreview?.({ silent: true });
+      this.pendingInteractionTriggerNodeId = "";
+      this.interactionWizardTargetNodeId = "";
+      this.interactionWizardAction = "";
+      this.interactionAdvancedOpen = false;
+      this.interactionWizardKind = kind === "sequence" ? "sequence" : "click";
+      this.interactionWizardStep = 1;
+      this.clearSelection?.();
       this.refreshInteractionPanel();
       this.renderBoxes?.();
+    },
+
+cancelInteractionWizard(options = {}) {
+      if (options.exit || !this.interactionWizardKind) {
+        this.leaveInteractionMode();
+        return;
+      }
+      this.stopSequencePreview?.({ silent: true });
+      this.resetInteractionWizardState();
+      this.clearSelection?.();
+      this.refreshInteractionPanel();
+      this.renderBoxes?.();
+    },
+
+chooseInteractionWizardAction(action) {
+      if (!["toggleVisibility", "openModal", "goToPage", "openUrl"].includes(action)) {
+        return;
+      }
+      this.interactionWizardAction = action;
+      this.interactionWizardStep = 2;
+      this.pendingInteractionTriggerNodeId = "";
+      this.interactionWizardTargetNodeId = "";
+      this.clearSelection?.();
+      this.refreshInteractionPanel();
+      this.renderBoxes?.();
+    },
+
+interactionActionNeedsTarget(action = this.interactionWizardAction) {
+      return action === "toggleVisibility" || action === "openModal";
+    },
+
+handleInteractionCanvasSelection(item) {
+      if (!this.interactionModeActive || !item?.element) {
+        return;
+      }
+      if (this.interactionWizardKind === "sequence") {
+        if (this.sequencePreview) {
+          this.stopSequencePreview?.({ silent: true });
+        }
+        this.addSelectedItemsToSequence?.();
+        return;
+      }
+      if (this.interactionWizardKind !== "click") {
+        return;
+      }
+      const nodeId = this.ensureInteractionElementId(item.element);
+      if (!nodeId) {
+        return;
+      }
+      if (this.interactionWizardStep === 2) {
+        this.pendingInteractionTriggerNodeId = nodeId;
+        this.interactionWizardTargetNodeId = "";
+        this.interactionWizardStep = 3;
+      } else if (this.interactionWizardStep === 3 && this.interactionActionNeedsTarget()) {
+        if (nodeId === this.pendingInteractionTriggerNodeId) {
+          this.toast(this.t("interactionSameTarget"));
+          return;
+        }
+        this.interactionWizardTargetNodeId = nodeId;
+        this.interactionWizardStep = 4;
+      }
+      this.refreshInteractionPanel();
+      this.renderBoxes?.();
+    },
+
+updateInteractionWizardControl(control, value, options = {}) {
+      if (control === "page") {
+        this.interactionWizardPageId = String(value || "");
+      } else if (control === "url") {
+        this.interactionWizardUrl = String(value || "");
+      } else if (control === "newWindow") {
+        this.interactionWizardNewWindow = Boolean(value);
+      } else if (control === "effect") {
+        this.interactionWizardEffect = ["fadeIn", "flyIn", "zoomIn"].includes(value) ? value : "none";
+      } else if (control === "duration") {
+        const duration = Number(value);
+        this.interactionWizardDuration = Math.min(3000, Math.max(100, duration || 400));
+      }
+      if (options.refresh !== false) {
+        this.refreshInteractionPanel();
+      }
+    },
+
+toggleInteractionAdvanced() {
+      this.interactionAdvancedOpen = !this.interactionAdvancedOpen;
+      this.refreshInteractionPanel();
+    },
+
+backInteractionWizard() {
+      if (this.interactionWizardKind === "sequence") {
+        this.cancelInteractionWizard();
+        return;
+      }
+      if (this.interactionWizardStep <= 1) {
+        this.cancelInteractionWizard();
+        return;
+      }
+      if (this.interactionWizardStep === 2) {
+        this.interactionWizardStep = 1;
+        this.pendingInteractionTriggerNodeId = "";
+      } else if (this.interactionWizardStep === 3) {
+        this.interactionWizardStep = 2;
+        this.pendingInteractionTriggerNodeId = "";
+        this.interactionWizardTargetNodeId = "";
+      } else {
+        this.interactionWizardStep = 3;
+      }
+      this.clearSelection?.();
+      this.refreshInteractionPanel();
+      this.renderBoxes?.();
+    },
+
+advanceInteractionWizard() {
+      if (this.interactionWizardKind !== "click") {
+        return;
+      }
+      if (this.interactionWizardStep === 3 && this.interactionWizardAction === "goToPage") {
+        const page = this.interactionPages().find((item) => item.id === this.interactionWizardPageId);
+        if (!page) {
+          this.toast(this.t("interactionNoPages"));
+          return;
+        }
+        this.interactionWizardStep = 4;
+      } else if (this.interactionWizardStep === 3 && this.interactionWizardAction === "openUrl") {
+        const href = this.normalizeExternalInteractionUrl(this.interactionWizardUrl);
+        if (!href) {
+          this.toast(this.t("interactionInvalidUrl"));
+          return;
+        }
+        this.interactionWizardUrl = href;
+        this.interactionWizardStep = 4;
+      } else {
+        this.toast(this.t("interactionWizardIncomplete"));
+        return;
+      }
+      this.refreshInteractionPanel();
+      this.renderBoxes?.();
+    },
+
+interactionWizardEffectValue() {
+      return {
+        type: ["fadeIn", "flyIn", "zoomIn"].includes(this.interactionWizardEffect)
+          ? this.interactionWizardEffect
+          : "none",
+        duration: Math.min(3000, Math.max(100, Number(this.interactionWizardDuration) || 400))
+      };
+    },
+
+previewInteractionWizard() {
+      if (this.interactionWizardKind === "sequence") {
+        this.startSequencePreview?.();
+        return;
+      }
+      if (this.interactionWizardStep !== 4) {
+        this.toast(this.t("interactionWizardIncomplete"));
+        return;
+      }
+      const trigger = this.interactionElement(this.pendingInteractionTriggerNodeId);
+      const target = this.interactionElement(this.interactionWizardTargetNodeId);
+      const animationOptions = { duration: 650, easing: "ease-out" };
+      trigger?.animate?.([
+        { outline: "0 solid rgba(31,111,255,0.4)" },
+        { outline: "8px solid rgba(31,111,255,0)" }
+      ], animationOptions);
+      target?.animate?.([
+        { opacity: 0.2, transform: "scale(0.96)" },
+        { opacity: 1, transform: "scale(1)" }
+      ], { ...animationOptions, duration: this.interactionWizardEffectValue().duration });
+      this.toast(this.t("interactionPreviewReady"));
+    },
+
+completeInteractionWizard() {
+      if (this.interactionWizardKind === "sequence") {
+        this.stopSequencePreview?.({ silent: true });
+        this.resetInteractionWizardState();
+        this.clearSelection?.();
+        this.refreshInteractionPanel();
+        this.renderBoxes?.();
+        return;
+      }
+      if (this.interactionWizardKind !== "click" || this.interactionWizardStep !== 4) {
+        this.toast(this.t("interactionWizardIncomplete"));
+        return;
+      }
+      const action = this.interactionWizardAction;
+      const triggerId = this.pendingInteractionTriggerNodeId;
+      const trigger = this.interactionElement(triggerId);
+      if (!trigger) {
+        this.toast(this.t("interactionChooseTrigger"));
+        return;
+      }
+      let interaction = null;
+      let toastKey = "interactionCreated";
+      if (this.interactionActionNeedsTarget(action)) {
+        const target = this.interactionElement(this.interactionWizardTargetNodeId);
+        if (!target || target === trigger) {
+          this.toast(this.t("interactionChooseTarget"));
+          return;
+        }
+        target.setAttribute(INITIAL_ATTRIBUTE, "hidden");
+        interaction = {
+          id: this.nextInteractionId(),
+          name: `${this.interactionElementLabel(trigger)} → ${this.interactionElementLabel(target)}`,
+          trigger: { event: "click", nodeId: triggerId },
+          action: { type: action, targetId: this.interactionWizardTargetNodeId },
+          initialState: { target: "hidden" },
+          effect: this.interactionWizardEffectValue(),
+          record: { type: "interaction.activated" }
+        };
+        toastKey = action === "openModal" ? "interactionModalCreated" : "interactionCreated";
+      } else if (action === "goToPage") {
+        const page = this.interactionPages().find((item) => item.id === this.interactionWizardPageId);
+        const href = this.relativeInteractionPageHref(page);
+        if (!page || !href) {
+          this.toast(this.t("interactionNoPages"));
+          return;
+        }
+        interaction = {
+          id: this.nextInteractionId(),
+          name: `${this.interactionElementLabel(trigger)} → ${page.label || page.title || page.id}`,
+          trigger: { event: "click", nodeId: triggerId },
+          action: { type: "goToPage", href, pageId: page.id, pageLabel: page.label || page.title || page.id },
+          initialState: { target: "visible" },
+          effect: { type: "none", duration: 400 },
+          record: { type: "interaction.activated" }
+        };
+        toastKey = "interactionPageJumpCreated";
+      } else if (action === "openUrl") {
+        const href = this.normalizeExternalInteractionUrl(this.interactionWizardUrl);
+        if (!href) {
+          this.toast(this.t("interactionInvalidUrl"));
+          return;
+        }
+        interaction = {
+          id: this.nextInteractionId(),
+          name: `${this.interactionElementLabel(trigger)} → ${href}`,
+          trigger: { event: "click", nodeId: triggerId },
+          action: { type: "openUrl", href, newWindow: this.interactionWizardNewWindow !== false },
+          initialState: { target: "visible" },
+          effect: { type: "none", duration: 400 },
+          record: { type: "interaction.activated" }
+        };
+        toastKey = "interactionUrlCreated";
+      }
+      if (!interaction) {
+        this.toast(this.t("interactionWizardIncomplete"));
+        return;
+      }
+      this.interactions.push(interaction);
+      this.resetInteractionWizardState();
+      this.clearSelection?.();
+      this.finishInteractionCreation(toastKey);
     },
 
 ensureInteractionElementId(element) {
@@ -10502,6 +11246,231 @@ interactionEffectLabel(effect) {
       }[effect?.type] || this.t("interactionEffectNone");
     },
 
+interactionActionLabel(action = this.interactionWizardAction) {
+      return {
+        toggleVisibility: this.t("interactionActionToggle"),
+        openModal: this.t("interactionActionModal"),
+        goToPage: this.t("interactionActionPage"),
+        openUrl: this.t("interactionActionUrl")
+      }[action] || "";
+    },
+
+interactionWizardStepText() {
+      return this.t("interactionStepLabel").replace("{current}", String(this.interactionWizardStep || 1));
+    },
+
+interactionWizardPageOptionsMarkup() {
+      const pages = this.interactionPages().filter((item) => !item.current);
+      if (!pages.length) {
+        this.interactionWizardPageId = "";
+        return `<option value="">${escapeHtml(this.t("interactionNoPages"))}</option>`;
+      }
+      if (!pages.some((item) => item.id === this.interactionWizardPageId)) {
+        this.interactionWizardPageId = pages[0].id;
+      }
+      return pages.map((item, index) => {
+        const label = item.label || item.title || `${this.t("interactionPage")} ${index + 1}`;
+        return `<option value="${escapeAttr(item.id)}"${item.id === this.interactionWizardPageId ? " selected" : ""}>${escapeHtml(label)}</option>`;
+      }).join("");
+    },
+
+interactionWizardAdvancedMarkup() {
+      const action = this.interactionWizardAction;
+      const supportsEffect = this.interactionActionNeedsTarget(action);
+      const supportsNewWindow = action === "openUrl";
+      if (!supportsEffect && !supportsNewWindow) {
+        return "";
+      }
+      const toggleLabel = this.t(this.interactionAdvancedOpen ? "interactionLessSettings" : "interactionMoreSettings");
+      const settings = this.interactionAdvancedOpen ? `
+        <div class="interaction-panel-settings">
+          ${supportsEffect ? `
+            <label>${escapeHtml(this.t("interactionEffect"))}
+              <select data-role="interaction-effect" data-wizard-control="effect">
+                <option value="none"${this.interactionWizardEffect === "none" ? " selected" : ""}>${escapeHtml(this.t("interactionEffectNone"))}</option>
+                <option value="fadeIn"${this.interactionWizardEffect === "fadeIn" ? " selected" : ""}>${escapeHtml(this.t("interactionEffectFade"))}</option>
+                <option value="flyIn"${this.interactionWizardEffect === "flyIn" ? " selected" : ""}>${escapeHtml(this.t("interactionEffectFly"))}</option>
+                <option value="zoomIn"${this.interactionWizardEffect === "zoomIn" ? " selected" : ""}>${escapeHtml(this.t("interactionEffectZoom"))}</option>
+              </select>
+            </label>
+            <label>${escapeHtml(this.t("interactionDuration"))}
+              <input data-role="interaction-duration" data-wizard-control="duration" type="number" min="100" max="3000" step="100" value="${escapeAttr(this.interactionWizardDuration)}">
+            </label>
+          ` : ""}
+          ${supportsNewWindow ? `
+            <label><span>${escapeHtml(this.t("interactionNewWindow"))}</span>
+              <input data-role="interaction-new-window" data-wizard-control="newWindow" type="checkbox"${this.interactionWizardNewWindow ? " checked" : ""}>
+            </label>
+          ` : ""}
+        </div>
+      ` : "";
+      return `
+        <div class="interaction-advanced">
+          <button class="interaction-advanced-toggle" type="button" data-action="toggle-interaction-advanced" aria-expanded="${this.interactionAdvancedOpen ? "true" : "false"}">${escapeHtml(toggleLabel)}</button>
+          ${settings}
+        </div>
+      `;
+    },
+
+interactionWizardSelectionSummaryMarkup() {
+      const trigger = this.interactionElement(this.pendingInteractionTriggerNodeId);
+      const target = this.interactionElement(this.interactionWizardTargetNodeId);
+      if (!trigger && !target) {
+        return "";
+      }
+      return `
+        <div class="interaction-selection-summary">
+          ${trigger ? `<span><strong>${escapeHtml(this.t("interactionCurrentTrigger"))}：</strong>${escapeHtml(this.interactionElementLabel(trigger))}</span>` : ""}
+          ${target ? `<span><strong>${escapeHtml(this.t("interactionCurrentTarget"))}：</strong>${escapeHtml(this.interactionElementLabel(target))}</span>` : ""}
+        </div>
+      `;
+    },
+
+interactionWizardBodyMarkup() {
+      const step = this.interactionWizardStep || 1;
+      if (step === 1) {
+        const choices = [
+          ["toggleVisibility", "interactionActionToggle", "interactionActionToggleHelp"],
+          ["openModal", "interactionActionModal", "interactionActionModalHelp"],
+          ["goToPage", "interactionActionPage", "interactionActionPageHelp"],
+          ["openUrl", "interactionActionUrl", "interactionActionUrlHelp"]
+        ];
+        return `
+          <div class="interaction-wizard-copy">
+            <h3>${escapeHtml(this.t("interactionChooseTypeTitle"))}</h3>
+            <p>${escapeHtml(this.t("interactionChooseTypeHelp"))}</p>
+          </div>
+          <div class="interaction-type-choices">
+            ${choices.map(([value, title, help]) => `
+              <button class="interaction-type-choice${this.interactionWizardAction === value ? " is-active" : ""}" type="button" data-action="choose-interaction-action" data-interaction-choice="${value}">
+                <span class="interaction-choice-title">${escapeHtml(this.t(title))}</span>
+                <span class="interaction-choice-help">${escapeHtml(this.t(help))}</span>
+              </button>
+            `).join("")}
+          </div>
+        `;
+      }
+      if (step === 2) {
+        return `
+          <div class="interaction-wizard-copy">
+            <h3>${escapeHtml(this.t("interactionPickTriggerTitle"))}</h3>
+            <p>${escapeHtml(this.t("interactionPickTriggerHelp"))}</p>
+          </div>
+        `;
+      }
+      if (step === 3 && this.interactionActionNeedsTarget()) {
+        return `
+          <div class="interaction-wizard-copy">
+            <h3>${escapeHtml(this.t("interactionPickTargetTitle"))}</h3>
+            <p>${escapeHtml(this.t("interactionPickTargetHelp"))}</p>
+          </div>
+          ${this.interactionWizardSelectionSummaryMarkup()}
+        `;
+      }
+      if (step === 3 && this.interactionWizardAction === "goToPage") {
+        return `
+          <div class="interaction-wizard-copy">
+            <h3>${escapeHtml(this.t("interactionChoosePageTitle"))}</h3>
+            <p>${escapeHtml(this.interactionActionLabel())}</p>
+          </div>
+          ${this.interactionWizardSelectionSummaryMarkup()}
+          <div class="interaction-panel-settings">
+            <label>${escapeHtml(this.t("interactionPage"))}
+              <select data-role="interaction-page-select" data-wizard-control="page">${this.interactionWizardPageOptionsMarkup()}</select>
+            </label>
+          </div>
+        `;
+      }
+      if (step === 3 && this.interactionWizardAction === "openUrl") {
+        return `
+          <div class="interaction-wizard-copy">
+            <h3>${escapeHtml(this.t("interactionEnterUrlTitle"))}</h3>
+            <p>${escapeHtml(this.interactionActionLabel())}</p>
+          </div>
+          ${this.interactionWizardSelectionSummaryMarkup()}
+          <div class="interaction-panel-settings">
+            <label>${escapeHtml(this.t("interactionUrl"))}
+              <input data-role="interaction-url-input" data-wizard-control="url" type="url" inputmode="url" value="${escapeAttr(this.interactionWizardUrl)}" placeholder="${escapeAttr(this.t("interactionUrlPlaceholder"))}">
+            </label>
+          </div>
+          ${this.interactionWizardAdvancedMarkup()}
+        `;
+      }
+      const trigger = this.interactionElement(this.pendingInteractionTriggerNodeId);
+      const target = this.interactionElement(this.interactionWizardTargetNodeId);
+      let destination = this.interactionElementLabel(target);
+      if (this.interactionWizardAction === "goToPage") {
+        const page = this.interactionPages().find((item) => item.id === this.interactionWizardPageId);
+        destination = page?.label || page?.title || page?.id || this.t("interactionNoPages");
+      } else if (this.interactionWizardAction === "openUrl") {
+        destination = this.interactionWizardUrl;
+      }
+      return `
+        <div class="interaction-wizard-copy">
+          <h3>${escapeHtml(this.t("interactionReviewTitle"))}</h3>
+          <p>${escapeHtml(this.t("interactionReviewHelp"))}</p>
+        </div>
+        <div class="interaction-selection-summary">
+          <span><strong>${escapeHtml(this.t("interactionCurrentTrigger"))}：</strong>${escapeHtml(this.interactionElementLabel(trigger))}</span>
+          <span><strong>${escapeHtml(this.interactionActionLabel())}：</strong>${escapeHtml(destination)}</span>
+        </div>
+        ${this.interactionWizardAdvancedMarkup()}
+      `;
+    },
+
+interactionWizardFooterMarkup() {
+      if (this.interactionWizardKind === "sequence") {
+        return `
+          <button type="button" data-action="interaction-wizard-back">${escapeHtml(this.t("interactionBackHome"))}</button>
+          <button class="primary" type="button" data-action="interaction-wizard-complete">${escapeHtml(this.t("interactionComplete"))}</button>
+        `;
+      }
+      if (this.interactionWizardKind !== "click") {
+        return "";
+      }
+      const back = this.interactionWizardStep > 1
+        ? `<button type="button" data-action="interaction-wizard-back">${escapeHtml(this.t("interactionBack"))}</button>`
+        : "";
+      if (this.interactionWizardStep === 4) {
+        return `
+          ${back}
+          <button type="button" data-action="interaction-wizard-preview">${escapeHtml(this.t("interactionPreview"))}</button>
+          <button class="primary" type="button" data-action="interaction-wizard-complete">${escapeHtml(this.t("interactionComplete"))}</button>
+        `;
+      }
+      const next = this.interactionWizardStep === 3 && !this.interactionActionNeedsTarget()
+        ? `<button class="primary" type="button" data-action="interaction-wizard-next">${escapeHtml(this.t("interactionNext"))}</button>`
+        : "";
+      return `
+        <button type="button" data-action="interaction-wizard-cancel">${escapeHtml(this.t("interactionCancel"))}</button>
+        ${back}
+        ${next}
+      `;
+    },
+
+refreshInteractionWizard() {
+      const home = this.shadow?.querySelector('[data-role="interaction-home"]');
+      const wizard = this.shadow?.querySelector('[data-role="interaction-wizard"]');
+      const sequence = this.shadow?.querySelector('[data-role="sequence-workspace"]');
+      const records = this.shadow?.querySelector('[data-role="interaction-records"]');
+      const body = this.shadow?.querySelector('[data-role="interaction-wizard-body"]');
+      const footer = this.shadow?.querySelector('[data-role="interaction-wizard-footer"]');
+      const step = this.shadow?.querySelector('[data-role="interaction-wizard-step"]');
+      const isHome = !this.interactionWizardKind;
+      const isClick = this.interactionWizardKind === "click";
+      const isSequence = this.interactionWizardKind === "sequence";
+      if (home) home.hidden = !isHome;
+      if (wizard) wizard.hidden = !isClick;
+      if (sequence) sequence.hidden = !isSequence;
+      if (records) records.hidden = !isHome;
+      if (body && isClick) body.innerHTML = this.interactionWizardBodyMarkup();
+      if (footer) footer.innerHTML = this.interactionWizardFooterMarkup();
+      if (step && isClick) {
+        step.textContent = this.interactionWizardStepText();
+        step.style.setProperty("--wizard-progress", `${Math.max(25, Math.min(100, this.interactionWizardStep * 25))}%`);
+      }
+    },
+
 refreshSequencePanel() {
       const list = this.shadow?.querySelector('[data-role="sequence-list"]');
       if (!list) {
@@ -10573,47 +11542,15 @@ refreshInteractionPanel() {
       if (panel) {
         panel.hidden = !this.interactionPanelOpen;
       }
-      toggle?.setAttribute("aria-expanded", this.interactionPanelOpen ? "true" : "false");
-      this.refreshInteractionPageOptions();
+      if (this.shell) {
+        this.shell.dataset.interactionMode = this.interactionModeActive ? "true" : "false";
+      }
+      if (toggle) {
+        toggle.setAttribute("aria-expanded", this.interactionPanelOpen ? "true" : "false");
+        toggle.textContent = this.t(this.interactionModeActive ? "interactionExitMode" : "interactions");
+      }
+      this.refreshInteractionWizard();
       this.refreshSequencePanel();
-
-      const item = this.selectedItem();
-      const selected = this.shadow.querySelector('[data-role="interaction-selection"]');
-      if (selected) {
-        selected.textContent = item?.element
-          ? `${this.t("interactionSelected")}：${this.interactionElementLabel(item.element)}`
-          : this.t("interactionNoSelection");
-      }
-      const triggerStatus = this.shadow.querySelector('[data-role="interaction-trigger-status"]');
-      if (triggerStatus) {
-        const trigger = this.interactionElement(this.pendingInteractionTriggerNodeId);
-        triggerStatus.textContent = trigger
-          ? `${this.t("interactionSetTrigger")}：${this.interactionElementLabel(trigger)} · ${this.t("interactionTriggerReady")}`
-          : this.t("interactionChooseTrigger");
-        triggerStatus.classList.toggle("is-ready", Boolean(trigger));
-      }
-
-      const create = this.shadow.querySelector('[data-action="create-toggle-interaction"]');
-      if (create) {
-        create.disabled = !this.pendingInteractionTriggerNodeId || !item?.element;
-      }
-      const createModal = this.shadow.querySelector('[data-action="create-modal-interaction"]');
-      if (createModal) {
-        createModal.disabled = !this.pendingInteractionTriggerNodeId || !item?.element;
-      }
-      const createPageJump = this.shadow.querySelector('[data-action="create-page-jump-interaction"]');
-      if (createPageJump) {
-        const pageSelect = this.shadow.querySelector('[data-role="interaction-page-select"]');
-        createPageJump.disabled = !this.pendingInteractionTriggerNodeId || pageSelect?.disabled || !pageSelect?.value;
-      }
-      const createUrl = this.shadow.querySelector('[data-action="create-url-interaction"]');
-      if (createUrl) {
-        createUrl.disabled = !this.pendingInteractionTriggerNodeId;
-      }
-      const clear = this.shadow.querySelector('[data-action="clear-interaction-trigger"]');
-      if (clear) {
-        clear.disabled = !this.pendingInteractionTriggerNodeId;
-      }
 
       const list = this.shadow.querySelector('[data-role="interaction-list"]');
       if (!list) {
@@ -10632,10 +11569,10 @@ refreshInteractionPanel() {
         return `
           <div class="interaction-item">
             <div class="interaction-item-head">
-              <strong>${index + 1}. ${escapeHtml(interaction.name)}</strong>
+              <strong>${index + 1}. ${escapeHtml(this.interactionElementLabel(trigger))} → ${escapeHtml(destination)}</strong>
               <button type="button" data-action="delete-interaction" data-interaction-id="${escapeAttr(interaction.id)}">${escapeHtml(this.t("interactionDelete"))}</button>
             </div>
-            <p>${escapeHtml(this.interactionElementLabel(trigger))} → ${escapeHtml(destination)} · ${escapeHtml(this.interactionEffectLabel(interaction.effect))}</p>
+            <p>${escapeHtml(this.interactionActionLabel(interaction.action.type))}</p>
           </div>
         `;
       }).join("");
@@ -10656,6 +11593,7 @@ refreshInteractionPanel() {
       this.collapsed = false;
       this.host = null;
       this.shadow = null;
+      this.shell = null;
       this.layer = null;
       this.toolbar = null;
       this.editPopover = null;
@@ -10677,6 +11615,20 @@ refreshInteractionPanel() {
       this.layoutToolMode = "moveScale";
       this.showAdvancedLayout = false;
       this.interactionPanelOpen = false;
+      this.interactionModeActive = false;
+      this.interactionWizardKind = "";
+      this.interactionWizardStep = 0;
+      this.interactionWizardAction = "";
+      this.interactionWizardTargetNodeId = "";
+      this.interactionWizardPageId = "";
+      this.interactionWizardUrl = "";
+      this.interactionWizardNewWindow = true;
+      this.interactionWizardEffect = "none";
+      this.interactionWizardDuration = 400;
+      this.interactionAdvancedOpen = false;
+      this.interactionPreviousEditorMode = "content";
+      this.interactionPreviousShowBoxes = true;
+      this.interactionPreviewTimer = 0;
       this.pendingInteractionTriggerNodeId = "";
       this.interactions = [];
       this.sequences = [];

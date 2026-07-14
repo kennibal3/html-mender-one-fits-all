@@ -56,9 +56,10 @@ test("editor runtime exposes a complete click-to-toggle interaction workflow", a
   );
 
   assert.match(runtime, /data-action="toggle-interactions"/);
-  assert.match(runtime, /data-action="set-interaction-trigger"/);
-  assert.match(runtime, /data-action="create-toggle-interaction"/);
-  assert.match(runtime, /data-action="clear-interaction-trigger"/);
+  assert.match(runtime, /data-action="begin-click-interaction"/);
+  assert.match(runtime, /data-interaction-choice=/);
+  assert.match(runtime, /"toggleVisibility", "interactionActionToggle"/);
+  assert.match(runtime, /data-action="interaction-wizard-complete"/);
   assert.match(runtime, /data-action="delete-interaction"/);
   assert.match(runtime, /data-role="interaction-panel"/);
   assert.match(runtime, /data-role="interaction-list"/);
@@ -85,6 +86,53 @@ test("editor runtime exposes a complete click-to-toggle interaction workflow", a
   assert.match(insertionRule, /return tree\.tag === "html" \? tree : null/);
 });
 
+test("interaction editing uses a guided mode that locks unrelated page tools", async () => {
+  const runtime = await readFile(
+    new URL("../vendor/html-slide-mender/assets/html-slide-mender-runtime.js", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(runtime, /2026-07-14-guided-interactions-v1/);
+  assert.match(runtime, /data-role="interaction-home"/);
+  assert.match(runtime, /data-action="begin-click-interaction"/);
+  assert.match(runtime, /data-action="begin-sequence-interaction"/);
+  assert.match(runtime, /data-role="interaction-wizard"/);
+  assert.match(runtime, /data-role="interaction-wizard-step"/);
+  assert.match(runtime, /data-role="interaction-wizard-body"/);
+  assert.match(runtime, /data-role="interaction-wizard-footer"/);
+  assert.match(runtime, /data-action="interaction-wizard-back"/);
+  assert.match(runtime, /data-action="interaction-wizard-next"/);
+  assert.match(runtime, /data-action="interaction-wizard-preview"/);
+  assert.match(runtime, /data-action="interaction-wizard-complete"/);
+  assert.match(runtime, /data-action="interaction-wizard-cancel"/);
+  assert.match(runtime, /data-action="toggle-interaction-advanced"/);
+  assert.match(runtime, /"toggleVisibility", "interactionActionToggle"/);
+  assert.match(runtime, /"openModal", "interactionActionModal"/);
+  assert.match(runtime, /"goToPage", "interactionActionPage"/);
+  assert.match(runtime, /"openUrl", "interactionActionUrl"/);
+
+  assert.match(runtime, /enterInteractionMode\(/);
+  assert.match(runtime, /leaveInteractionMode\(/);
+  assert.match(runtime, /beginInteractionWizard\(/);
+  assert.match(runtime, /advanceInteractionWizard\(/);
+  assert.match(runtime, /completeInteractionWizard\(/);
+  assert.match(runtime, /cancelInteractionWizard\(/);
+  assert.match(runtime, /isInteractionSelectionMode\(/);
+  assert.match(runtime, /interactionWizardStep/);
+  assert.match(runtime, /interactionWizardKind/);
+  assert.match(runtime, /interactionWizardAction/);
+  assert.match(runtime, /dataset\.interactionMode/);
+
+  assert.match(runtime, /\.shell\[data-interaction-mode="true"\] \.mode-switch/);
+  assert.match(runtime, /\.shell\[data-interaction-mode="true"\] \.group-insert/);
+  assert.match(runtime, /\.shell\[data-interaction-mode="true"\] \.edit-popover/);
+  assert.match(runtime, /\.interaction-panel-body/);
+  assert.match(runtime, /\.interaction-panel-body \{[\s\S]*?flex: 1 1 auto/);
+  assert.match(runtime, /\.interaction-panel-footer/);
+  assert.match(runtime, /bottom: 72px/);
+  assert.match(runtime, /overflow: hidden/);
+});
+
 test("editor runtime exposes page jump, modal, and reveal animation workflows", async () => {
   const runtime = await readFile(
     new URL("../vendor/html-slide-mender/assets/html-slide-mender-runtime.js", import.meta.url),
@@ -95,8 +143,8 @@ test("editor runtime exposes page jump, modal, and reveal animation workflows", 
     "utf8"
   );
 
-  assert.match(runtime, /data-action="create-page-jump-interaction"/);
-  assert.match(runtime, /data-action="create-modal-interaction"/);
+  assert.match(runtime, /"goToPage", "interactionActionPage"/);
+  assert.match(runtime, /"openModal", "interactionActionModal"/);
   assert.match(runtime, /data-role="interaction-page-select"/);
   assert.match(runtime, /data-role="interaction-effect"/);
   assert.match(runtime, /data-role="interaction-duration"/);
@@ -106,7 +154,7 @@ test("editor runtime exposes page jump, modal, and reveal animation workflows", 
   assert.match(runtime, /goToPage/);
   assert.match(runtime, /openModal/);
   assert.match(runtime, /effect:/);
-  assert.match(runtime, /2026-07-13-progressive-sequence-v1/);
+  assert.match(runtime, /2026-07-14-guided-interactions-v1/);
 
   assert.match(interactionRuntime, /navigateToPage\(/);
   assert.match(interactionRuntime, /openInteractionModal\(/);
@@ -177,7 +225,7 @@ test("editor runtime exposes audio, media playback settings, and safe URL links"
     "utf8"
   );
 
-  assert.match(runtime, /2026-07-13-progressive-sequence-v1/);
+  assert.match(runtime, /2026-07-14-guided-interactions-v1/);
   assert.match(runtime, /audio\/mpeg/);
   assert.match(runtime, /audio\/wav/);
   assert.match(runtime, /audio\/ogg/);
@@ -199,7 +247,7 @@ test("editor runtime exposes audio, media playback settings, and safe URL links"
 
   assert.match(runtime, /data-role="interaction-url-input"/);
   assert.match(runtime, /data-role="interaction-new-window"/);
-  assert.match(runtime, /data-action="create-url-interaction"/);
+  assert.match(runtime, /"openUrl", "interactionActionUrl"/);
   assert.match(runtime, /createUrlInteraction\(/);
   assert.match(runtime, /openUrl/);
 

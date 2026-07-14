@@ -34,7 +34,7 @@ const uploadDir = resolve(dataDir, "uploads");
 const outputDir = resolve(dataDir, "outputs");
 const projectsDir = resolve(dataDir, "projects");
 const archiveDir = resolve(dataDir, "archives");
-const EDITOR_RUNTIME_VERSION = 22;
+const EDITOR_RUNTIME_VERSION = 24;
 
 for (const dir of [uploadDir, outputDir, projectsDir, archiveDir]) {
   mkdirSync(dir, { recursive: true });
