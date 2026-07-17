@@ -92,7 +92,7 @@ test("interaction editing uses a guided mode that locks unrelated page tools", a
     "utf8"
   );
 
-  assert.match(runtime, /2026-07-14-guided-interactions-v1/);
+  assert.match(runtime, /2026-07-15-guided-interactions-v2/);
   assert.match(runtime, /data-role="interaction-home"/);
   assert.match(runtime, /data-action="begin-click-interaction"/);
   assert.match(runtime, /data-action="begin-sequence-interaction"/);
@@ -136,6 +136,61 @@ test("interaction editing uses a guided mode that locks unrelated page tools", a
   assert.match(runtime, /overflow: hidden/);
 });
 
+test("completed interactions enter a live preview that can return to editing", async () => {
+  const runtime = await readFile(
+    new URL("../vendor/html-slide-mender/assets/html-slide-mender-runtime.js", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(runtime, /2026-07-15-guided-interactions-v2/);
+  assert.match(runtime, /data-interaction-preview="false"/);
+  assert.match(runtime, /data-role="interaction-preview-toolbar"/);
+  assert.match(runtime, /data-action="stop-interaction-preview"/);
+  assert.match(runtime, /startInteractionPreview\(/);
+  assert.match(runtime, /stopInteractionPreview\(/);
+  assert.match(runtime, /handleInteractionPreviewClick\(/);
+  assert.match(runtime, /activateInteractionPreview\(/);
+  assert.match(runtime, /openInteractionPreviewModal\(/);
+  assert.match(runtime, /restoreInteractionPreviewState\(/);
+
+  const finishStart = runtime.indexOf("\nfinishInteractionCreation(toastKey) {");
+  const finishEnd = runtime.indexOf("\n    },", finishStart);
+  assert.ok(finishStart >= 0 && finishEnd > finishStart, "interaction completion handler is missing");
+  assert.match(runtime.slice(finishStart, finishEnd), /startInteractionPreview/);
+  assert.match(runtime, /interactionPreviewUnsaved/);
+});
+
+test("click triggers cannot also be hidden progressive-reveal steps", async () => {
+  const runtime = await readFile(
+    new URL("../vendor/html-slide-mender/assets/html-slide-mender-runtime.js", import.meta.url),
+    "utf8"
+  );
+  const interactionRuntime = await readFile(
+    new URL("../vendor/html-slide-mender/assets/html-slide-mender-interactions.js", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(runtime, /isSequenceStepNode\(/);
+  assert.match(runtime, /isClickInteractionTriggerNode\(/);
+  assert.match(runtime, /interactionTriggerSequenceConflict/);
+  assert.match(runtime, /sequenceTriggerConflict/);
+  assert.match(runtime, /sequenceStepsWithoutTriggerConflicts\(/);
+  assert.match(runtime, /interactionConflictWarning/);
+
+  const canvasSelectionStart = runtime.indexOf("handleInteractionCanvasSelection(item)");
+  const canvasSelectionEnd = runtime.indexOf("\n    },", canvasSelectionStart);
+  assert.ok(canvasSelectionStart >= 0 && canvasSelectionEnd > canvasSelectionStart, "interaction canvas handler is missing");
+  assert.match(runtime.slice(canvasSelectionStart, canvasSelectionEnd), /isSequenceStepNode\(nodeId\)/);
+
+  const sequenceAddStart = runtime.indexOf("addSelectedItemsToSequence()");
+  const sequenceAddEnd = runtime.indexOf("\n    },", sequenceAddStart);
+  assert.ok(sequenceAddStart >= 0 && sequenceAddEnd > sequenceAddStart, "sequence add handler is missing");
+  assert.match(runtime.slice(sequenceAddStart, sequenceAddEnd), /isClickInteractionTriggerNode\(nodeId\)/);
+
+  assert.match(interactionRuntime, /clickTriggerNodeIds/);
+  assert.match(interactionRuntime, /!clickTriggerNodeIds\.has\(step\?\.nodeId\)/);
+});
+
 test("editor runtime exposes page jump, modal, and reveal animation workflows", async () => {
   const runtime = await readFile(
     new URL("../vendor/html-slide-mender/assets/html-slide-mender-runtime.js", import.meta.url),
@@ -157,7 +212,7 @@ test("editor runtime exposes page jump, modal, and reveal animation workflows", 
   assert.match(runtime, /goToPage/);
   assert.match(runtime, /openModal/);
   assert.match(runtime, /effect:/);
-  assert.match(runtime, /2026-07-14-guided-interactions-v1/);
+  assert.match(runtime, /2026-07-15-guided-interactions-v2/);
 
   assert.match(interactionRuntime, /navigateToPage\(/);
   assert.match(interactionRuntime, /openInteractionModal\(/);
@@ -228,7 +283,7 @@ test("editor runtime exposes audio, media playback settings, and safe URL links"
     "utf8"
   );
 
-  assert.match(runtime, /2026-07-14-guided-interactions-v1/);
+  assert.match(runtime, /2026-07-15-guided-interactions-v2/);
   assert.match(runtime, /audio\/mpeg/);
   assert.match(runtime, /audio\/wav/);
   assert.match(runtime, /audio\/ogg/);

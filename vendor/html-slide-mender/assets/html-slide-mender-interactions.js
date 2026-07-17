@@ -479,6 +479,9 @@
     }
     const reducedMotion = prefersReducedMotion();
     const manifest = readManifest();
+    const clickTriggerNodeIds = new Set(
+      manifest.interactions.map((interaction) => interaction.trigger?.nodeId).filter(Boolean)
+    );
     let bound = 0;
     for (const interaction of manifest.interactions) {
       if (bindInteraction(interaction)) {
@@ -487,7 +490,10 @@
     }
     sequenceStates.clear();
     for (const sequence of manifest.sequences) {
-      initializeSequence(sequence);
+      initializeSequence({
+        ...sequence,
+        steps: (sequence.steps || []).filter((step) => !clickTriggerNodeIds.has(step?.nodeId))
+      });
     }
     installSequenceAdvanceListeners();
     return {

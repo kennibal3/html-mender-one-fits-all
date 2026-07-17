@@ -168,7 +168,7 @@
 (() => {
   const ns = window.HtmlSlideMenderExtension = window.HtmlSlideMenderExtension || {};
   const MESSAGE_NAMESPACE = "HTML_SLIDE_MENDER";
-  const EDITOR_BUILD_ID = "2026-07-14-guided-interactions-v1";
+  const EDITOR_BUILD_ID = "2026-07-15-guided-interactions-v2";
   const ROOT_ID = "html-slide-mender-root";
   const INTERACTION_NODE_ATTRIBUTE = "data-hsm-node-id";
   const TEXT_SELECTOR = [
@@ -377,6 +377,17 @@
       interactionPreview: "预览",
       interactionComplete: "完成",
       interactionCancel: "取消制作",
+      interactionPreviewMode: "正在测试互动",
+      interactionPreviewHint: "点击课件中的按钮查看效果，按 Esc 可返回编辑。",
+      interactionPreviewBack: "返回互动编辑",
+      interactionPreviewExisting: "测试本页互动",
+      interactionPreviewUnsaved: "互动已创建，正在预览。确认效果后请点击“保存版本”。",
+      interactionPreviewStopped: "已返回互动编辑。",
+      interactionPreviewNoItems: "本页还没有可以测试的互动。",
+      interactionPreviewPage: "预览成功：正式放映时将跳转到 {destination}。",
+      interactionPreviewUrl: "预览成功：正式放映时将打开 {destination}。",
+      interactionPreviewSequenceProgress: "逐步呈现：第 {current} 项，共 {total} 项。",
+      interactionPreviewModalClose: "关闭弹窗",
       interactionMoreSettings: "更多设置",
       interactionLessSettings: "收起设置",
       interactionBackHome: "返回互动首页",
@@ -412,6 +423,9 @@
       interactionInvalidUrl: "请输入有效的网址，仅支持 http、https、mailto 或 tel。",
       interactionDeleted: "互动已删除。",
       interactionSameTarget: "触发元素和目标元素不能相同。",
+      interactionTriggerSequenceConflict: "这个元素已用于逐步呈现，不能再作为点击按钮。请先删除对应步骤或选择其他元素。",
+      sequenceTriggerConflict: "这个元素已经是点击按钮，不能再加入逐步呈现。",
+      interactionConflictWarning: "已发现冲突：点击按钮不会再被逐步呈现隐藏。请保存版本以完成修复。",
       interactionChooseTrigger: "请先设置触发元素。",
       interactionChooseTarget: "请选择目标元素。",
       interactionDelete: "删除",
@@ -612,6 +626,17 @@
       interactionPreview: "Preview",
       interactionComplete: "Complete",
       interactionCancel: "Cancel",
+      interactionPreviewMode: "Testing interaction",
+      interactionPreviewHint: "Click the lesson controls to test them. Press Esc to return to editing.",
+      interactionPreviewBack: "Return to interaction editor",
+      interactionPreviewExisting: "Test page interactions",
+      interactionPreviewUnsaved: "Interaction created and ready to test. Save a version after confirming the result.",
+      interactionPreviewStopped: "Returned to interaction editing.",
+      interactionPreviewNoItems: "There are no interactions to test on this page.",
+      interactionPreviewPage: "Preview succeeded. Presentation mode will open {destination}.",
+      interactionPreviewUrl: "Preview succeeded. Presentation mode will open {destination}.",
+      interactionPreviewSequenceProgress: "Progressive reveal: item {current} of {total}.",
+      interactionPreviewModalClose: "Close dialog",
       interactionMoreSettings: "More settings",
       interactionLessSettings: "Hide settings",
       interactionBackHome: "Back to interaction home",
@@ -647,6 +672,9 @@
       interactionInvalidUrl: "Enter a valid http, https, mailto, or tel URL.",
       interactionDeleted: "Interaction deleted.",
       interactionSameTarget: "Trigger and target must be different.",
+      interactionTriggerSequenceConflict: "This element is already a progressive-reveal step and cannot also be a click trigger.",
+      sequenceTriggerConflict: "This element is already a click trigger and cannot be hidden as a progressive-reveal step.",
+      interactionConflictWarning: "A conflict was found. Click triggers will no longer be hidden by progressive reveal. Save a version to keep the fix.",
       interactionChooseTrigger: "Set a trigger first.",
       interactionChooseTarget: "Select a target element.",
       interactionDelete: "Delete",
@@ -1383,6 +1411,117 @@
       border-color: #b42318;
       background: #fff4f2;
       color: #9f1c13;
+    }
+
+    .interaction-preview-toolbar {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      min-height: 50px;
+      padding: 7px 8px 7px 14px;
+      pointer-events: auto;
+    }
+
+    .interaction-preview-status {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .interaction-preview-status strong {
+      color: #0f5f59;
+      font-size: 13px;
+    }
+
+    .interaction-preview-status span {
+      max-width: min(460px, 52vw);
+      color: #5d716e;
+      font-size: 11px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .interaction-preview-unsaved {
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #fff4d6;
+      color: #8a4b08;
+      font-size: 11px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .shell[data-interaction-preview="true"] .collapse,
+    .shell[data-interaction-preview="true"] .toolbar-body {
+      display: none !important;
+    }
+
+    .shell[data-interaction-preview="true"] .interaction-preview-toolbar {
+      display: flex;
+    }
+
+    .interaction-conflict-warning {
+      margin: 0 0 12px;
+      padding: 9px 10px;
+      border: 1px solid #f0b45b;
+      border-radius: 8px;
+      background: #fff8e8;
+      color: #7a4308;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .interaction-preview-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 12;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(15, 23, 42, 0.58);
+      pointer-events: auto;
+    }
+
+    .interaction-preview-modal[hidden] {
+      display: none;
+    }
+
+    .interaction-preview-dialog {
+      position: relative;
+      width: min(900px, 92vw);
+      max-height: 86vh;
+      overflow: auto;
+      padding: 28px;
+      border: 1px solid rgba(15, 118, 110, 0.32);
+      border-radius: 14px;
+      background: #fffdf7;
+      color: #1d2522;
+      box-shadow: 0 28px 80px rgba(15, 23, 42, 0.28);
+    }
+
+    .interaction-preview-dialog-close {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      z-index: 1;
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #0f172a;
+      font-size: 24px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .interaction-preview-dialog-content img,
+    .interaction-preview-dialog-content video,
+    .interaction-preview-dialog-content iframe {
+      max-width: 100%;
+      height: auto;
     }
 
     @media (max-width: 720px) {
@@ -2751,6 +2890,7 @@ async exit() {
         return { ok: true, message: this.t("notActive") };
       }
 
+      this.stopInteractionPreview?.({ silent: true, returnToEditor: false });
       this.stopSequencePreview?.({ silent: true });
       this.commitActiveText();
       this.active = false;
@@ -2852,6 +2992,7 @@ installEvents() {
       this.addEvent(document, "transitionend", () => this.scheduleScan(80), true);
       this.addEvent(document, "animationend", () => this.scheduleScan(80), true);
       this.addEvent(document, "pointerdown", (event) => this.handleDocumentPointerDown(event), true);
+      this.addEvent(document, "click", (event) => this.handleInteractionPreviewClick?.(event), true);
       this.addEvent(document, "keydown", (event) => this.handleDocumentKeydown(event), true);
       this.addEvent(document, "selectionchange", () => {
         this.saveCurrentSelection();
@@ -2919,6 +3060,15 @@ async handleAction(action, button = null) {
           return;
         case "interaction-wizard-complete":
           this.completeInteractionWizard?.();
+          return;
+        case "start-interaction-preview":
+          this.startInteractionPreview?.();
+          return;
+        case "stop-interaction-preview":
+          this.stopInteractionPreview?.();
+          return;
+        case "close-interaction-preview-modal":
+          this.closeInteractionPreviewModal?.();
           return;
         case "interaction-wizard-cancel":
           this.cancelInteractionWizard?.({ exit: button?.dataset?.exitInteractionMode === "true" });
@@ -3356,6 +3506,11 @@ summaryText() {
 
     handleDocumentKeydown(event) {
       if (!this.active) {
+        return;
+      }
+
+      if (this.interactionPreviewActive) {
+        this.handleInteractionPreviewKeydown?.(event);
         return;
       }
 
@@ -4945,7 +5100,7 @@ toast(message) {
 template() {
       return `
         <style>${EDITOR_CSS}</style>
-        <div class="shell" data-role="shell" data-interaction-mode="false">
+        <div class="shell" data-role="shell" data-interaction-mode="false" data-interaction-preview="false">
         <div class="toolbar" data-role="toolbar">
           <button class="collapse" type="button" data-action="collapse" title="${escapeAttr(this.t("collapseTitle"))}">
             <span class="brand-mark" aria-hidden="true">P</span>
@@ -4981,6 +5136,14 @@ template() {
               <button type="button" data-action="exit">${escapeHtml(this.t("exit"))}</button>
             </div>
           </div>
+          <div class="interaction-preview-toolbar" data-role="interaction-preview-toolbar" hidden>
+            <div class="interaction-preview-status">
+              <strong>${escapeHtml(this.t("interactionPreviewMode"))}</strong>
+              <span>${escapeHtml(this.t("interactionPreviewHint"))}</span>
+            </div>
+            <span class="interaction-preview-unsaved">${escapeHtml(this.t("interactionPreviewUnsaved"))}</span>
+            <button class="primary" type="button" data-action="stop-interaction-preview">${escapeHtml(this.t("interactionPreviewBack"))}</button>
+          </div>
         </div>
 
         <aside class="interaction-panel" data-role="interaction-panel" aria-label="${escapeAttr(this.t("interactionStudio"))}" hidden>
@@ -4990,6 +5153,7 @@ template() {
           </div>
           <div class="interaction-panel-body">
             <p class="interaction-lock-note">${escapeHtml(this.t("interactionLockedHelp"))}</p>
+            <p class="interaction-conflict-warning" data-role="interaction-conflict-warning" hidden>${escapeHtml(this.t("interactionConflictWarning"))}</p>
 
             <section data-role="interaction-home">
               <div class="interaction-home-copy">
@@ -5006,6 +5170,7 @@ template() {
                   <span class="interaction-choice-help">${escapeHtml(this.t("interactionSequenceChoiceHelp"))}</span>
                 </button>
               </div>
+              <button type="button" data-action="start-interaction-preview"${!this.interactions.length && !this.sequences.length ? " disabled" : ""}>${escapeHtml(this.t("interactionPreviewExisting"))}</button>
             </section>
 
             <section data-role="interaction-wizard" hidden>
@@ -5035,6 +5200,13 @@ template() {
           </div>
           <div class="interaction-panel-footer" data-role="interaction-wizard-footer"></div>
         </aside>
+
+        <div class="interaction-preview-modal" data-role="interaction-preview-modal" hidden>
+          <div class="interaction-preview-dialog" role="dialog" aria-modal="true" aria-label="${escapeAttr(this.t("interactionPreviewMode"))}">
+            <button class="interaction-preview-dialog-close" type="button" data-action="close-interaction-preview-modal" aria-label="${escapeAttr(this.t("interactionPreviewModalClose"))}">×</button>
+            <div class="interaction-preview-dialog-content" data-role="interaction-preview-dialog-content"></div>
+          </div>
+        </div>
 
         <div class="edit-popover" data-role="edit-popover" data-selection="none" hidden>
             <div class="group group-common">
@@ -10290,6 +10462,36 @@ ensurePageSequence() {
       return sequence;
     },
 
+isSequenceStepNode(nodeId) {
+      return Boolean(nodeId && this.sequences?.some((sequence) =>
+        sequence.steps?.some((step) => step.nodeId === nodeId)
+      ));
+    },
+
+isClickInteractionTriggerNode(nodeId) {
+      return Boolean(nodeId && this.interactions?.some((interaction) =>
+        interaction.trigger?.nodeId === nodeId
+      ));
+    },
+
+interactionConflictNodeIds() {
+      const triggers = new Set(this.interactions?.map((interaction) => interaction.trigger?.nodeId).filter(Boolean));
+      const conflicts = new Set();
+      for (const sequence of this.sequences || []) {
+        for (const step of sequence.steps || []) {
+          if (triggers.has(step.nodeId)) {
+            conflicts.add(step.nodeId);
+          }
+        }
+      }
+      return conflicts;
+    },
+
+sequenceStepsWithoutTriggerConflicts(sequence) {
+      const clickTriggers = new Set(this.interactions?.map((interaction) => interaction.trigger?.nodeId).filter(Boolean));
+      return (sequence?.steps || []).filter((step) => !clickTriggers.has(step.nodeId));
+    },
+
 nextSequenceStepId(sequence) {
       return `${sequence.id}-step-${globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${sequence.steps.length + 1}`}`;
     },
@@ -10323,9 +10525,14 @@ addSelectedItemsToSequence() {
       const existing = new Set(sequence.steps.map((step) => step.nodeId));
       const effect = this.selectedInteractionEffect();
       let added = 0;
+      let blocked = 0;
       for (const item of items) {
         const nodeId = this.ensureInteractionElementId(item.element);
         if (!nodeId || existing.has(nodeId)) {
+          continue;
+        }
+        if (this.isClickInteractionTriggerNode(nodeId)) {
+          blocked += 1;
           continue;
         }
         existing.add(nodeId);
@@ -10338,11 +10545,11 @@ addSelectedItemsToSequence() {
         added += 1;
       }
       if (!added) {
-        this.toast(this.t("sequenceAlreadyAdded"));
+        this.toast(this.t(blocked ? "sequenceTriggerConflict" : "sequenceAlreadyAdded"));
         return;
       }
       this.markInteractionDataDirty();
-      this.toast(this.t("sequenceStepAdded"));
+      this.toast(this.t(blocked ? "sequenceTriggerConflict" : "sequenceStepAdded"));
     },
 
 moveSequenceStep(stepId, direction) {
@@ -10637,6 +10844,10 @@ handleInteractionCanvasSelection(item) {
         return;
       }
       if (this.interactionWizardStep === 2) {
+        if (this.isSequenceStepNode(nodeId)) {
+          this.toast(this.t("interactionTriggerSequenceConflict"));
+          return;
+        }
         this.pendingInteractionTriggerNodeId = nodeId;
         this.interactionWizardTargetNodeId = "";
         this.interactionWizardStep = 3;
@@ -10763,8 +10974,7 @@ completeInteractionWizard() {
         this.stopSequencePreview?.({ silent: true });
         this.resetInteractionWizardState();
         this.clearSelection?.();
-        this.refreshInteractionPanel();
-        this.renderBoxes?.();
+        this.startInteractionPreview?.();
         return;
       }
       if (this.interactionWizardKind !== "click" || this.interactionWizardStep !== 4) {
@@ -10773,6 +10983,15 @@ completeInteractionWizard() {
       }
       const action = this.interactionWizardAction;
       const triggerId = this.pendingInteractionTriggerNodeId;
+      if (this.isSequenceStepNode(triggerId)) {
+        this.interactionWizardStep = 2;
+        this.pendingInteractionTriggerNodeId = "";
+        this.interactionWizardTargetNodeId = "";
+        this.refreshInteractionPanel();
+        this.renderBoxes?.();
+        this.toast(this.t("interactionTriggerSequenceConflict"));
+        return;
+      }
       const trigger = this.interactionElement(triggerId);
       if (!trigger) {
         this.toast(this.t("interactionChooseTrigger"));
@@ -11062,6 +11281,344 @@ relativeInteractionPageHref(page) {
       return [...from.map(() => ".."), ...to].join("/") || String(page.sourceRelativePath).split("/").at(-1) || "";
     },
 
+captureInteractionPreviewElement(element) {
+      if (!element || this.interactionPreviewElementStates.has(element)) {
+        return;
+      }
+      this.interactionPreviewElementStates.set(element, {
+        style: element.getAttribute("style"),
+        inlineDisplay: element.style.display || "",
+        ariaHidden: element.getAttribute("aria-hidden"),
+        role: element.getAttribute("role"),
+        tabindex: element.getAttribute("tabindex"),
+        ariaControls: element.getAttribute("aria-controls"),
+        previewHidden: element.getAttribute("data-hsm-interaction-preview-hidden")
+      });
+    },
+
+restoreInteractionPreviewAttribute(element, name, value) {
+      if (value == null) {
+        element.removeAttribute(name);
+      } else {
+        element.setAttribute(name, value);
+      }
+    },
+
+previewSetVisible(element, visible) {
+      if (!element) {
+        return false;
+      }
+      this.captureInteractionPreviewElement(element);
+      const state = this.interactionPreviewElementStates.get(element);
+      if (visible) {
+        if (state?.inlineDisplay) {
+          element.style.display = state.inlineDisplay;
+        } else {
+          element.style.removeProperty("display");
+        }
+        element.removeAttribute("data-hsm-interaction-preview-hidden");
+        element.removeAttribute("aria-hidden");
+      } else {
+        element.style.display = "none";
+        element.setAttribute("data-hsm-interaction-preview-hidden", "true");
+        element.setAttribute("aria-hidden", "true");
+      }
+      return visible;
+    },
+
+playInteractionPreviewEffect(element, effect = {}) {
+      if (!element || window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches || typeof element.animate !== "function") {
+        return null;
+      }
+      const type = String(effect.type || "none");
+      const keyframes = {
+        fadeIn: [{ opacity: 0 }, { opacity: 1 }],
+        flyIn: [{ opacity: 0, transform: "translateY(28px)" }, { opacity: 1, transform: "translateY(0)" }],
+        zoomIn: [{ opacity: 0, transform: "scale(0.9)" }, { opacity: 1, transform: "scale(1)" }]
+      }[type];
+      if (!keyframes) {
+        return null;
+      }
+      return element.animate(keyframes, {
+        duration: Math.min(3000, Math.max(100, Number(effect.duration) || 400)),
+        easing: "cubic-bezier(0.2, 0.8, 0.2, 1)"
+      });
+    },
+
+isInteractionPreviewNativeControl(element) {
+      return Boolean(element?.closest?.("button,a,input,select,textarea,summary,video,audio,iframe,[role='button'],[role='link'],[contenteditable='true']"));
+    },
+
+prepareInteractionPreviewState() {
+      this.restoreInteractionPreviewState();
+      this.interactionPreviewElementStates = new Map();
+      this.interactionPreviewSequenceEntries = [];
+      this.interactionPreviewSequenceIndex = 0;
+
+      for (const interaction of this.interactions || []) {
+        const trigger = this.interactionElement(interaction.trigger?.nodeId);
+        const target = this.interactionElement(interaction.action?.targetId);
+        if (trigger) {
+          this.captureInteractionPreviewElement(trigger);
+          if (!this.isInteractionPreviewNativeControl(trigger)) {
+            trigger.setAttribute("role", interaction.action?.type === "openUrl" ? "link" : "button");
+            if (!trigger.hasAttribute("tabindex")) {
+              trigger.setAttribute("tabindex", "0");
+            }
+          }
+          if (target) {
+            trigger.setAttribute("aria-controls", interaction.action.targetId);
+          }
+        }
+        if (target) {
+          this.captureInteractionPreviewElement(target);
+          if (interaction.initialState?.target === "hidden") {
+            this.previewSetVisible(target, false);
+          }
+        }
+      }
+
+      for (const sequence of this.sequences || []) {
+        for (const step of this.sequenceStepsWithoutTriggerConflicts(sequence)) {
+          const element = this.interactionElement(step.nodeId);
+          if (!element) {
+            continue;
+          }
+          this.captureInteractionPreviewElement(element);
+          this.previewSetVisible(element, false);
+          this.interactionPreviewSequenceEntries.push({ step, element });
+        }
+      }
+    },
+
+restoreInteractionPreviewState() {
+      this.closeInteractionPreviewModal?.({ restoreFocus: false });
+      for (const [element, state] of this.interactionPreviewElementStates || []) {
+        if (!element?.isConnected) {
+          continue;
+        }
+        if (state.style == null) {
+          element.removeAttribute("style");
+        } else {
+          element.setAttribute("style", state.style);
+        }
+        this.restoreInteractionPreviewAttribute(element, "aria-hidden", state.ariaHidden);
+        this.restoreInteractionPreviewAttribute(element, "role", state.role);
+        this.restoreInteractionPreviewAttribute(element, "tabindex", state.tabindex);
+        this.restoreInteractionPreviewAttribute(element, "aria-controls", state.ariaControls);
+        this.restoreInteractionPreviewAttribute(element, "data-hsm-interaction-preview-hidden", state.previewHidden);
+      }
+      this.interactionPreviewElementStates = new Map();
+      this.interactionPreviewSequenceEntries = [];
+      this.interactionPreviewSequenceIndex = 0;
+    },
+
+startInteractionPreview() {
+      const hasInteractions = Boolean(this.interactions?.length);
+      const hasSequenceSteps = Boolean(this.sequences?.some((sequence) => sequence.steps?.length));
+      if (!hasInteractions && !hasSequenceSteps) {
+        this.toast(this.t("interactionPreviewNoItems"));
+        return false;
+      }
+      if (this.interactionPreviewActive) {
+        return true;
+      }
+
+      this.stopSequencePreview?.({ silent: true });
+      this.commitActiveText?.();
+      this.closeOpenMenus?.();
+      this.interactionPreviewReturnToMode = Boolean(this.interactionModeActive || this.interactionPanelOpen);
+      this.interactionPreviewPreviousShowBoxes = this.showBoxes;
+      this.interactionPreviewActive = true;
+      this.interactionModeActive = false;
+      this.interactionPanelOpen = false;
+      this.showBoxes = false;
+      this.resetInteractionWizardState();
+      this.clearSelection?.();
+      this.prepareInteractionPreviewState();
+
+      if (this.shell) {
+        this.shell.dataset.interactionMode = "false";
+        this.shell.dataset.interactionPreview = "true";
+      }
+      const previewToolbar = this.shadow?.querySelector('[data-role="interaction-preview-toolbar"]');
+      if (previewToolbar) {
+        previewToolbar.hidden = false;
+      }
+      const panel = this.shadow?.querySelector('[data-role="interaction-panel"]');
+      if (panel) {
+        panel.hidden = true;
+      }
+      if (this.layer) {
+        this.layer.innerHTML = "";
+      }
+      this.refreshToolbar?.();
+      this.toast(this.t("interactionPreviewUnsaved"));
+      return true;
+    },
+
+stopInteractionPreview(options = {}) {
+      if (!this.interactionPreviewActive && !(this.interactionPreviewElementStates?.size)) {
+        return false;
+      }
+      const returnToEditor = options.returnToEditor !== false;
+      const returnToInteractionMode = returnToEditor && this.interactionPreviewReturnToMode !== false;
+      this.restoreInteractionPreviewState();
+      this.interactionPreviewActive = false;
+      this.showBoxes = this.interactionPreviewPreviousShowBoxes !== false;
+      this.interactionModeActive = returnToInteractionMode;
+      this.interactionPanelOpen = returnToInteractionMode;
+      if (this.shell) {
+        this.shell.dataset.interactionPreview = "false";
+        this.shell.dataset.interactionMode = returnToInteractionMode ? "true" : "false";
+      }
+      const previewToolbar = this.shadow?.querySelector('[data-role="interaction-preview-toolbar"]');
+      if (previewToolbar) {
+        previewToolbar.hidden = true;
+      }
+      this.refreshInteractionPanel?.();
+      this.refreshToolbar?.();
+      this.scheduleScan?.(0);
+      this.renderBoxes?.();
+      if (!options.silent) {
+        this.toast(this.t("interactionPreviewStopped"));
+      }
+      return true;
+    },
+
+activateInteractionPreview(interaction) {
+      const actionType = interaction?.action?.type;
+      if (actionType === "goToPage") {
+        const destination = interaction.action?.pageLabel || interaction.action?.href || "";
+        this.toast(this.t("interactionPreviewPage").replace("{destination}", destination));
+        return true;
+      }
+      if (actionType === "openUrl") {
+        const destination = interaction.action?.href || "";
+        this.toast(this.t("interactionPreviewUrl").replace("{destination}", destination));
+        return true;
+      }
+      const target = this.interactionElement(interaction?.action?.targetId);
+      if (!target) {
+        return false;
+      }
+      if (actionType === "openModal") {
+        return this.openInteractionPreviewModal(interaction, target);
+      }
+      if (actionType !== "toggleVisibility") {
+        return false;
+      }
+      const visible = target.hasAttribute("data-hsm-interaction-preview-hidden");
+      this.previewSetVisible(target, visible);
+      if (visible) {
+        this.playInteractionPreviewEffect(target, interaction.effect);
+      }
+      return true;
+    },
+
+openInteractionPreviewModal(interaction, target) {
+      const root = this.shadow?.querySelector('[data-role="interaction-preview-modal"]');
+      const content = this.shadow?.querySelector('[data-role="interaction-preview-dialog-content"]');
+      const dialog = root?.querySelector?.('[role="dialog"]');
+      if (!root || !content || !target) {
+        return false;
+      }
+      const clone = target.cloneNode(true);
+      clone.removeAttribute(INTERACTION_NODE_ATTRIBUTE);
+      clone.removeAttribute(INITIAL_ATTRIBUTE);
+      clone.removeAttribute("data-hsm-interaction-preview-hidden");
+      clone.removeAttribute("aria-hidden");
+      clone.style.removeProperty("display");
+      clone.querySelectorAll?.(`[${INTERACTION_NODE_ATTRIBUTE}]`).forEach((node) => node.removeAttribute(INTERACTION_NODE_ATTRIBUTE));
+      content.replaceChildren(clone);
+      dialog?.setAttribute("aria-label", interaction?.name || this.t("interactionPreviewMode"));
+      root.hidden = false;
+      this.interactionPreviewModalTrigger = this.interactionElement(interaction?.trigger?.nodeId);
+      this.shadow?.querySelector('[data-action="close-interaction-preview-modal"]')?.focus?.();
+      this.playInteractionPreviewEffect(dialog, interaction?.effect);
+      return true;
+    },
+
+closeInteractionPreviewModal(options = {}) {
+      const root = this.shadow?.querySelector('[data-role="interaction-preview-modal"]');
+      const content = this.shadow?.querySelector('[data-role="interaction-preview-dialog-content"]');
+      if (!root || root.hidden) {
+        return false;
+      }
+      root.hidden = true;
+      content?.replaceChildren();
+      if (options.restoreFocus !== false) {
+        this.interactionPreviewModalTrigger?.focus?.();
+      }
+      this.interactionPreviewModalTrigger = null;
+      return true;
+    },
+
+advanceInteractionPreviewSequence() {
+      const entries = this.interactionPreviewSequenceEntries || [];
+      if (this.interactionPreviewSequenceIndex >= entries.length) {
+        return false;
+      }
+      const entry = entries[this.interactionPreviewSequenceIndex];
+      this.previewSetVisible(entry.element, true);
+      this.playInteractionPreviewEffect(entry.element, entry.step.effect);
+      this.interactionPreviewSequenceIndex += 1;
+      const message = this.t("interactionPreviewSequenceProgress")
+        .replace("{current}", String(this.interactionPreviewSequenceIndex))
+        .replace("{total}", String(entries.length));
+      this.toast(message);
+      return true;
+    },
+
+handleInteractionPreviewClick(event) {
+      if (!this.interactionPreviewActive || this.host && event.composedPath?.().includes(this.host)) {
+        return;
+      }
+      const triggerElement = event.target?.closest?.(`[${INTERACTION_NODE_ATTRIBUTE}]`);
+      const nodeId = triggerElement?.getAttribute?.(INTERACTION_NODE_ATTRIBUTE) || "";
+      const interaction = this.interactions?.find((item) => item.trigger?.nodeId === nodeId);
+      if (interaction) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        this.activateInteractionPreview(interaction);
+        return;
+      }
+      if (this.interactionPreviewSequenceIndex < (this.interactionPreviewSequenceEntries?.length || 0) && !this.isInteractionPreviewNativeControl(event.target)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        this.advanceInteractionPreviewSequence();
+      }
+    },
+
+handleInteractionPreviewKeydown(event) {
+      if (this.host && event.composedPath?.().includes(this.host)) {
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (!this.closeInteractionPreviewModal()) {
+          this.stopInteractionPreview();
+        }
+        return;
+      }
+      const triggerElement = event.target?.closest?.(`[${INTERACTION_NODE_ATTRIBUTE}]`);
+      const nodeId = triggerElement?.getAttribute?.(INTERACTION_NODE_ATTRIBUTE) || "";
+      const interaction = this.interactions?.find((item) => item.trigger?.nodeId === nodeId);
+      if (interaction && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        this.activateInteractionPreview(interaction);
+        return;
+      }
+      if ((event.key === "ArrowRight" || event.key === " ") && !this.isInteractionPreviewNativeControl(event.target)) {
+        if (this.advanceInteractionPreviewSequence()) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      }
+    },
+
 finishInteractionCreation(toastKey) {
       this.interactionsDirty = true;
       this.pendingInteractionTriggerNodeId = "";
@@ -11069,6 +11626,7 @@ finishInteractionCreation(toastKey) {
       this.renderBoxes?.();
       window.dispatchEvent(new CustomEvent("hsm-editor-dirty", { detail: { kind: "interaction" } }));
       this.toast(this.t(toastKey));
+      this.startInteractionPreview();
     },
 
 deleteInteraction(interactionId) {
@@ -11112,7 +11670,7 @@ interactionManifest() {
             type: "pageAdvance",
             events: ["click", "Space", "ArrowRight"]
           },
-          steps: sequence.steps.map((step) => ({
+          steps: this.sequenceStepsWithoutTriggerConflicts(sequence).map((step) => ({
             id: step.id,
             nodeId: step.nodeId,
             effect: { ...step.effect },
@@ -11133,7 +11691,7 @@ interactionNodeExportPatches(sourceDocument) {
         }
       }
       for (const sequence of this.sequences) {
-        for (const step of sequence.steps) {
+        for (const step of this.sequenceStepsWithoutTriggerConflicts(sequence)) {
           if (step.nodeId) {
             referenced.add(step.nodeId);
           }
@@ -11542,11 +12100,16 @@ refreshInteractionPanel() {
       }
       const panel = this.shadow.querySelector('[data-role="interaction-panel"]');
       const toggle = this.shadow.querySelector('.toolbar [data-action="toggle-interactions"]');
+      const previewToolbar = this.shadow.querySelector('[data-role="interaction-preview-toolbar"]');
       if (panel) {
-        panel.hidden = !this.interactionPanelOpen;
+        panel.hidden = this.interactionPreviewActive || !this.interactionPanelOpen;
       }
       if (this.shell) {
         this.shell.dataset.interactionMode = this.interactionModeActive ? "true" : "false";
+        this.shell.dataset.interactionPreview = this.interactionPreviewActive ? "true" : "false";
+      }
+      if (previewToolbar) {
+        previewToolbar.hidden = !this.interactionPreviewActive;
       }
       if (toggle) {
         toggle.setAttribute("aria-expanded", this.interactionPanelOpen ? "true" : "false");
@@ -11554,6 +12117,15 @@ refreshInteractionPanel() {
       }
       this.refreshInteractionWizard();
       this.refreshSequencePanel();
+
+      const conflictWarning = this.shadow.querySelector('[data-role="interaction-conflict-warning"]');
+      if (conflictWarning) {
+        conflictWarning.hidden = !this.interactionConflictNodeIds().size;
+      }
+      const previewExisting = this.shadow.querySelector('[data-action="start-interaction-preview"]');
+      if (previewExisting) {
+        previewExisting.disabled = !this.interactions.length && !this.sequences.some((sequence) => sequence.steps?.length);
+      }
 
       const list = this.shadow.querySelector('[data-role="interaction-list"]');
       if (!list) {
@@ -11632,6 +12204,11 @@ refreshInteractionPanel() {
       this.interactionPreviousEditorMode = "content";
       this.interactionPreviousShowBoxes = true;
       this.interactionPreviewTimer = 0;
+      this.interactionPreviewActive = false;
+      this.interactionPreviewReturnToMode = true;
+      this.interactionPreviewElementStates = new Map();
+      this.interactionPreviewSequenceEntries = [];
+      this.interactionPreviewSequenceIndex = 0;
       this.pendingInteractionTriggerNodeId = "";
       this.interactions = [];
       this.sequences = [];
