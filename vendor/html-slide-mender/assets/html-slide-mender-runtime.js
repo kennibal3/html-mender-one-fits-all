@@ -10388,7 +10388,10 @@ normalizeInteraction(interaction) {
         return null;
       }
       const targetId = String(interaction.action?.targetId || "");
-      const href = String(interaction.action?.href || "");
+      const sourceHref = String(interaction.action?.href || "");
+      const href = actionType === "openUrl"
+        ? this.normalizeExternalInteractionUrl(sourceHref)
+        : sourceHref;
       if (["showVisibility", "hideVisibility", "toggleVisibility", "openModal"].includes(actionType) && !targetId) {
         return null;
       }

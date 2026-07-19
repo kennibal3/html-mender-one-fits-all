@@ -465,6 +465,9 @@
     if (!trigger || (requiresTarget && !target) || interaction.trigger?.event !== "click") {
       return false;
     }
+    if (actionType === "openUrl" && !safeExternalDestination(interaction.action?.href)) {
+      return false;
+    }
 
     if (interaction.initialState?.target === "hidden") {
       setVisible(target, false);
