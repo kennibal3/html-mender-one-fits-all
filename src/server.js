@@ -188,11 +188,14 @@ app.delete("/api/projects/:id/pages/:pageId", async (req, res, next) => {
     const references = await findPageJumpReferences(project, req.params.pageId);
     if (references.length && req.query.force !== "true") {
       res.status(409).json({
-        error: `这个页面被 ${references.length} 个跳转互动引用，删除后这些跳转将暂时失效。`,
+        error: `这个页面被 ${references.length} 个跳转互动引用，强制删除会停用这些跳转。`,
         references
       });
       return;
     }
+    const disabledPageJumps = references.length
+      ? await disablePageJumpReferences(project, req.params.pageId)
+      : [];
     const [page] = project.pages.splice(pageIndex, 1);
     const deletedPage = {
       ...page,
@@ -203,7 +206,11 @@ app.delete("/api/projects/:id/pages/:pageId", async (req, res, next) => {
     project.deletedPages = [...(project.deletedPages || []), deletedPage];
     await removeManagedPageOutputs(project, page);
     await finalizePageManagementChange(project);
-    res.json({ deletedPage: publicDeletedProjectPage(project, deletedPage), project: publicProject(project) });
+    res.json({
+      deletedPage: publicDeletedProjectPage(project, deletedPage),
+      disabledPageJumps,
+      project: publicProject(project)
+    });
   } catch (error) {
     next(error);
   }
@@ -916,6 +923,53 @@ async function findPageJumpReferences(project, targetPageId) {
     }
   }
   return references;
+}
+
+function removePageJumpReferencesFromHtml(html, targetPageId) {
+  let disabledInteractions = [];
+  const manifestPattern = /(<script\b[^>]*data-hsm-interaction-manifest[^>]*>)([\s\S]*?)(<\/script\s*>)/gi;
+  const updatedHtml = String(html || "").replace(manifestPattern, (match, opening, source, closing) => {
+    try {
+      const manifest = JSON.parse(source || "{}");
+      const interactions = Array.isArray(manifest.interactions) ? manifest.interactions : [];
+      const retained = interactions.filter((interaction) => {
+        const targetsDeletedPage = interaction?.action?.type === "goToPage" &&
+          String(interaction.action.pageId || "") === targetPageId;
+        if (targetsDeletedPage) disabledInteractions.push(interaction);
+        return !targetsDeletedPage;
+      });
+      if (retained.length === interactions.length) return match;
+      const serialized = JSON.stringify({ ...manifest, interactions: retained }).replace(/</g, "\\u003c");
+      return `${opening}${serialized}${closing}`;
+    } catch (_error) {
+      return match;
+    }
+  });
+  return { html: updatedHtml, disabledInteractions };
+}
+
+async function disablePageJumpReferences(project, targetPageId) {
+  const disabledPageJumps = [];
+  for (const page of project.pages || []) {
+    if (page.id === targetPageId) continue;
+    const sourcePath = resolve(project.sourceDir, ...page.sourceRelativePath.split("/"));
+    const source = await readFile(sourcePath, "utf8");
+    const result = removePageJumpReferencesFromHtml(source, targetPageId);
+    if (!result.disabledInteractions.length) continue;
+    await createNextProjectVersion({
+      project,
+      html: result.html,
+      editRelativePath: page.editRelativePath,
+      note: `目标页删除，停用 ${result.disabledInteractions.length} 个页面跳转`
+    });
+    disabledPageJumps.push(...result.disabledInteractions.map((interaction) => ({
+      pageId: page.id,
+      pageLabel: page.label || "",
+      interactionId: String(interaction.id || ""),
+      interactionName: String(interaction.name || "页面跳转")
+    })));
+  }
+  return disabledPageJumps;
 }
 
 async function finalizePageManagementChange(project) {
