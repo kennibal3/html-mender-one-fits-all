@@ -352,8 +352,12 @@
       interactionSequenceChoiceHelp: "按照讲课顺序，一项一项显示页面内容。",
       interactionChooseTypeTitle: "选择点击后的结果",
       interactionChooseTypeHelp: "先选择一种效果，下一步再到课件中点击对象。",
-      interactionActionToggle: "显示内容",
-      interactionActionToggleHelp: "适合答案揭晓、提示和补充内容。",
+      interactionActionShow: "显示内容",
+      interactionActionShowHelp: "目标先隐藏，点击后显示，适合答案揭晓和提示。",
+      interactionActionHide: "隐藏内容",
+      interactionActionHideHelp: "目标先显示，点击后隐藏。",
+      interactionActionToggle: "切换显示/隐藏",
+      interactionActionToggleHelp: "目标先隐藏，每次点击在显示和隐藏之间切换。",
       interactionActionModal: "打开弹窗",
       interactionActionModalHelp: "在页面上方弹出说明、图片或视频。",
       interactionActionPage: "跳转页面",
@@ -601,8 +605,12 @@
       interactionSequenceChoiceHelp: "Reveal page content one item at a time in teaching order.",
       interactionChooseTypeTitle: "Choose what happens after the click",
       interactionChooseTypeHelp: "Choose an outcome, then select the page element in the next step.",
-      interactionActionToggle: "Show content",
-      interactionActionToggleHelp: "Best for answers, hints, and supporting content.",
+      interactionActionShow: "Show content",
+      interactionActionShowHelp: "Start hidden and show the target after a click.",
+      interactionActionHide: "Hide content",
+      interactionActionHideHelp: "Start visible and hide the target after a click.",
+      interactionActionToggle: "Toggle visibility",
+      interactionActionToggleHelp: "Start hidden and alternate between showing and hiding the target.",
       interactionActionModal: "Open pop-up",
       interactionActionModalHelp: "Show text, an image, or video above the page.",
       interactionActionPage: "Jump to page",
@@ -10367,13 +10375,13 @@ loadInteractionManifest() {
 
 normalizeInteraction(interaction) {
       const actionType = String(interaction?.action?.type || "");
-      const supported = ["toggleVisibility", "openModal", "goToPage", "openUrl"];
+      const supported = ["showVisibility", "hideVisibility", "toggleVisibility", "openModal", "goToPage", "openUrl"];
       if (!interaction?.id || !interaction?.trigger?.nodeId || !supported.includes(actionType)) {
         return null;
       }
       const targetId = String(interaction.action?.targetId || "");
       const href = String(interaction.action?.href || "");
-      if ((actionType === "toggleVisibility" || actionType === "openModal") && !targetId) {
+      if (["showVisibility", "hideVisibility", "toggleVisibility", "openModal"].includes(actionType) && !targetId) {
         return null;
       }
       if ((actionType === "goToPage" || actionType === "openUrl") && !href) {
@@ -10809,7 +10817,7 @@ cancelInteractionWizard(options = {}) {
     },
 
 chooseInteractionWizardAction(action) {
-      if (!["toggleVisibility", "openModal", "goToPage", "openUrl"].includes(action)) {
+      if (!["showVisibility", "hideVisibility", "toggleVisibility", "openModal", "goToPage", "openUrl"].includes(action)) {
         return;
       }
       this.interactionWizardAction = action;
@@ -10822,7 +10830,7 @@ chooseInteractionWizardAction(action) {
     },
 
 interactionActionNeedsTarget(action = this.interactionWizardAction) {
-      return action === "toggleVisibility" || action === "openModal";
+      return ["showVisibility", "hideVisibility", "toggleVisibility", "openModal"].includes(action);
     },
 
 handleInteractionCanvasSelection(item) {
@@ -11005,13 +11013,18 @@ completeInteractionWizard() {
           this.toast(this.t("interactionChooseTarget"));
           return;
         }
-        target.setAttribute(INITIAL_ATTRIBUTE, "hidden");
+        const initialTarget = action === "hideVisibility" ? "visible" : "hidden";
+        if (initialTarget === "hidden") {
+          target.setAttribute(INITIAL_ATTRIBUTE, "hidden");
+        } else {
+          target.removeAttribute(INITIAL_ATTRIBUTE);
+        }
         interaction = {
           id: this.nextInteractionId(),
           name: `${this.interactionElementLabel(trigger)} → ${this.interactionElementLabel(target)}`,
           trigger: { event: "click", nodeId: triggerId },
           action: { type: action, targetId: this.interactionWizardTargetNodeId },
-          initialState: { target: "hidden" },
+          initialState: { target: initialTarget },
           effect: this.interactionWizardEffectValue(),
           record: { type: "interaction.activated" }
         };
@@ -11505,10 +11518,12 @@ activateInteractionPreview(interaction) {
       if (actionType === "openModal") {
         return this.openInteractionPreviewModal(interaction, target);
       }
-      if (actionType !== "toggleVisibility") {
+      if (!["showVisibility", "hideVisibility", "toggleVisibility"].includes(actionType)) {
         return false;
       }
-      const visible = target.hasAttribute("data-hsm-interaction-preview-hidden");
+      const visible = actionType === "showVisibility"
+        ? true
+        : (actionType === "hideVisibility" ? false : target.hasAttribute("data-hsm-interaction-preview-hidden"));
       this.previewSetVisible(target, visible);
       if (visible) {
         this.playInteractionPreviewEffect(target, interaction.effect);
@@ -11715,14 +11730,18 @@ interactionNodeExportPatches(sourceDocument) {
         const isHiddenTarget = this.interactions.some((interaction) =>
           interaction.action.targetId === nodeId && interaction.initialState?.target === "hidden"
         );
+        const interactionAttributes = {
+          [INTERACTION_NODE_ATTRIBUTE]: nodeId,
+          [INITIAL_ATTRIBUTE]: isHiddenTarget ? "hidden" : ""
+        };
+        if (isHiddenTarget) {
+          interactionAttributes.hidden = true;
+        }
         patches.push({
           selector,
           sourcePath,
           kind: "interaction",
-          interactionAttributes: {
-            [INTERACTION_NODE_ATTRIBUTE]: nodeId,
-            [INITIAL_ATTRIBUTE]: isHiddenTarget ? "hidden" : ""
-          }
+          interactionAttributes
         });
       }
       return patches;
@@ -11809,6 +11828,8 @@ interactionEffectLabel(effect) {
 
 interactionActionLabel(action = this.interactionWizardAction) {
       return {
+        showVisibility: this.t("interactionActionShow"),
+        hideVisibility: this.t("interactionActionHide"),
         toggleVisibility: this.t("interactionActionToggle"),
         openModal: this.t("interactionActionModal"),
         goToPage: this.t("interactionActionPage"),
@@ -11891,6 +11912,8 @@ interactionWizardBodyMarkup() {
       const step = this.interactionWizardStep || 1;
       if (step === 1) {
         const choices = [
+          ["showVisibility", "interactionActionShow", "interactionActionShowHelp"],
+          ["hideVisibility", "interactionActionHide", "interactionActionHideHelp"],
           ["toggleVisibility", "interactionActionToggle", "interactionActionToggleHelp"],
           ["openModal", "interactionActionModal", "interactionActionModalHelp"],
           ["goToPage", "interactionActionPage", "interactionActionPageHelp"],

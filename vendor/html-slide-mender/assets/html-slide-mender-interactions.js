@@ -53,17 +53,32 @@
         element.style.removeProperty("display");
       }
       element.removeAttribute(HIDDEN_ATTRIBUTE);
+      element.removeAttribute("hidden");
       element.removeAttribute("aria-hidden");
     } else {
       element.style.display = "none";
       element.setAttribute(HIDDEN_ATTRIBUTE, "true");
+      element.setAttribute("hidden", "");
       element.setAttribute("aria-hidden", "true");
     }
     return visible;
   }
 
   function toggleVisibility(element) {
-    return setVisible(element, element?.hasAttribute(HIDDEN_ATTRIBUTE));
+    return setVisible(element, element?.hasAttribute(HIDDEN_ATTRIBUTE) || element?.hasAttribute("hidden"));
+  }
+
+  function applyVisibilityAction(element, actionType) {
+    if (actionType === "showVisibility") {
+      return setVisible(element, true);
+    }
+    if (actionType === "hideVisibility") {
+      return setVisible(element, false);
+    }
+    if (actionType === "toggleVisibility") {
+      return toggleVisibility(element);
+    }
+    return null;
   }
 
   function prefersReducedMotion() {
@@ -426,10 +441,10 @@
       return opened;
     }
     const target = findNode(interaction.action?.targetId);
-    if (!target || actionType !== "toggleVisibility") {
+    const visible = target ? applyVisibilityAction(target, actionType) : null;
+    if (visible === null) {
       return false;
     }
-    const visible = toggleVisibility(target);
     if (visible) {
       playInteractionEffect(target, interaction.effect);
     }
@@ -441,7 +456,7 @@
     const trigger = findNode(interaction.trigger?.nodeId);
     const actionType = interaction.action?.type;
     const target = findNode(interaction.action?.targetId);
-    const requiresTarget = actionType === "toggleVisibility" || actionType === "openModal";
+    const requiresTarget = ["showVisibility", "hideVisibility", "toggleVisibility", "openModal"].includes(actionType);
     if (!trigger || (requiresTarget && !target) || interaction.trigger?.event !== "click") {
       return false;
     }
@@ -510,6 +525,7 @@
     start,
     setVisible,
     toggleVisibility,
+    applyVisibilityAction,
     navigateToPage,
     safeExternalDestination,
     openExternalUrl,
