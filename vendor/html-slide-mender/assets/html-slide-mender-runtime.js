@@ -10571,6 +10571,9 @@ addSelectedItemsToSequence() {
         added += 1;
       }
       if (!added) {
+        if (!sequence.steps.length) {
+          this.sequences = this.sequences.filter((entry) => entry !== sequence);
+        }
         this.toast(this.t(blocked ? "sequenceTriggerConflict" : "sequenceAlreadyAdded"));
         return;
       }
