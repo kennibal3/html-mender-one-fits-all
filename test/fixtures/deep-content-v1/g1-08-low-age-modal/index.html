@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>AI 小侦探</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    button { min-height: 3rem; padding: 0.6rem 1rem; font-size: 1.2rem; }
+    [hidden] { display: none; }
+    .card { margin-top: 1rem; padding: 1rem; border: 3px solid #2563eb; border-radius: 1rem; }
+  </style>
+</head>
+<body data-sample-id="g1-08-low-age-modal">
+  <h1>AI 小侦探</h1>
+  <button id="open-card" type="button">看看线索</button>
+  <section id="clue-card" class="card" aria-labelledby="clue-title" hidden>
+    <h2 id="clue-title">客厅里的 AI 线索</h2>
+    <p id="clue-status">点击星星，看看原来的互动还在不在。</p>
+    <button id="original-action" type="button">⭐ 收集线索</button>
+    <button id="close-card" type="button">返回客厅</button>
+  </section>
+  <canvas width="120" height="60" aria-label="只管理外层的绘画区域"></canvas>
+  <script>
+    const card = document.querySelector('#clue-card');
+    document.querySelector('#open-card').addEventListener('click', () => { card.hidden = false; });
+    document.querySelector('#close-card').addEventListener('click', () => { card.hidden = true; });
+    document.querySelector('#original-action').addEventListener('click', () => {
+      document.querySelector('#clue-status').textContent = '已经收集 1 条线索';
+    });
+  </script>
+</body>
+</html>

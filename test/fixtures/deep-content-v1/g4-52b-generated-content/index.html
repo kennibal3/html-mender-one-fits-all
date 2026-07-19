@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>无人书店推荐语工坊</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    [hidden] { display: none; }
+    .workshop { padding: 1rem; border: 2px solid #0f766e; border-radius: 1rem; }
+    textarea { display: block; width: min(36rem, 90%); min-height: 6rem; margin: 0.75rem 0; }
+  </style>
+</head>
+<body data-sample-id="g4-52b-generated-content">
+  <h1>无人书店大营救</h1>
+  <button id="open-workshop" type="button">进入推荐语工坊</button>
+  <section id="workshop" class="workshop" aria-labelledby="workshop-title" hidden>
+    <h2 id="workshop-title">给读者写一句推荐语</h2>
+    <textarea id="student-note" placeholder="写下你观察到的阅读兴趣"></textarea>
+    <button id="make-copy" type="button">生成示例</button>
+    <p id="generated-copy" aria-live="polite">还没有生成内容</p>
+    <button id="close-workshop" type="button">保存想法并返回</button>
+  </section>
+  <script>
+    const workshop = document.querySelector('#workshop');
+    document.querySelector('#open-workshop').addEventListener('click', () => { workshop.hidden = false; });
+    document.querySelector('#make-copy').addEventListener('click', () => {
+      const note = document.querySelector('#student-note').value.trim() || '喜欢探索新世界';
+      document.querySelector('#generated-copy').textContent = `离线示例：为“${note}”挑一本惊喜好书。`;
+    });
+    document.querySelector('#close-workshop').addEventListener('click', () => { workshop.hidden = true; });
+  </script>
+</body>
+</html>
