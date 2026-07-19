@@ -360,6 +360,10 @@
       interactionActionToggleHelp: "目标先隐藏，每次点击在显示和隐藏之间切换。",
       interactionActionModal: "打开弹窗",
       interactionActionModalHelp: "在页面上方弹出说明、图片或视频。",
+      interactionModalCloseTitle: "关闭方式",
+      interactionModalCloseButton: "始终显示关闭按钮",
+      interactionModalCloseBackdrop: "点击遮罩关闭",
+      interactionModalCloseEscape: "按 Esc 关闭",
       interactionActionPage: "跳转页面",
       interactionActionPageHelp: "点击后前往指定课件页面。",
       interactionActionUrl: "打开链接",
@@ -613,6 +617,10 @@
       interactionActionToggleHelp: "Start hidden and alternate between showing and hiding the target.",
       interactionActionModal: "Open pop-up",
       interactionActionModalHelp: "Show text, an image, or video above the page.",
+      interactionModalCloseTitle: "Close methods",
+      interactionModalCloseButton: "Always show the close button",
+      interactionModalCloseBackdrop: "Close by clicking the backdrop",
+      interactionModalCloseEscape: "Close with Escape",
       interactionActionPage: "Jump to page",
       interactionActionPageHelp: "Open another page in the lesson.",
       interactionActionUrl: "Open link",
@@ -10398,6 +10406,13 @@ normalizeInteraction(interaction) {
           type: actionType,
           ...(targetId ? { targetId } : {}),
           ...(href ? { href } : {}),
+          ...(actionType === "openModal" ? {
+            close: {
+              button: true,
+              backdrop: interaction.action?.close?.backdrop !== false,
+              escape: interaction.action?.close?.escape !== false
+            }
+          } : {}),
           ...(actionType === "openUrl" ? { newWindow: interaction.action?.newWindow !== false } : {}),
           ...(interaction.action?.pageId ? { pageId: String(interaction.action.pageId) } : {}),
           ...(interaction.action?.pageLabel ? { pageLabel: String(interaction.action.pageLabel) } : {})
@@ -10783,6 +10798,8 @@ resetInteractionWizardState() {
       this.interactionWizardPageId = "";
       this.interactionWizardUrl = "";
       this.interactionWizardNewWindow = true;
+      this.interactionWizardModalBackdrop = true;
+      this.interactionWizardModalEscape = true;
       this.interactionWizardEffect = "none";
       this.interactionWizardDuration = 400;
       this.interactionAdvancedOpen = false;
@@ -10878,6 +10895,10 @@ updateInteractionWizardControl(control, value, options = {}) {
         this.interactionWizardUrl = String(value || "");
       } else if (control === "newWindow") {
         this.interactionWizardNewWindow = Boolean(value);
+      } else if (control === "modalBackdrop") {
+        this.interactionWizardModalBackdrop = Boolean(value);
+      } else if (control === "modalEscape") {
+        this.interactionWizardModalEscape = Boolean(value);
       } else if (control === "effect") {
         this.interactionWizardEffect = ["fadeIn", "flyIn", "zoomIn"].includes(value) ? value : "none";
       } else if (control === "duration") {
@@ -11023,7 +11044,17 @@ completeInteractionWizard() {
           id: this.nextInteractionId(),
           name: `${this.interactionElementLabel(trigger)} → ${this.interactionElementLabel(target)}`,
           trigger: { event: "click", nodeId: triggerId },
-          action: { type: action, targetId: this.interactionWizardTargetNodeId },
+          action: {
+            type: action,
+            targetId: this.interactionWizardTargetNodeId,
+            ...(action === "openModal" ? {
+              close: {
+                button: true,
+                backdrop: this.interactionWizardModalBackdrop !== false,
+                escape: this.interactionWizardModalEscape !== false
+              }
+            } : {})
+          },
           initialState: { target: initialTarget },
           effect: this.interactionWizardEffectValue(),
           record: { type: "interaction.activated" }
@@ -11159,7 +11190,11 @@ createModalInteraction() {
         id: this.nextInteractionId(),
         name: `${this.interactionElementLabel(triggerElement)} → ${this.t("interactionCreateModal")}`,
         trigger: { event: "click", nodeId: this.pendingInteractionTriggerNodeId },
-        action: { type: "openModal", targetId: target.nodeId },
+        action: {
+          type: "openModal",
+          targetId: target.nodeId,
+          close: { button: true, backdrop: true, escape: true }
+        },
         initialState: { target: "hidden" },
         effect: this.selectedInteractionEffect(),
         record: { type: "interaction.activated" }
@@ -11546,6 +11581,16 @@ openInteractionPreviewModal(interaction, target) {
       clone.style.removeProperty("display");
       clone.querySelectorAll?.(`[${INTERACTION_NODE_ATTRIBUTE}]`).forEach((node) => node.removeAttribute(INTERACTION_NODE_ATTRIBUTE));
       content.replaceChildren(clone);
+      this.interactionPreviewModalClose = {
+        button: true,
+        backdrop: interaction?.action?.close?.backdrop !== false,
+        escape: interaction?.action?.close?.escape !== false
+      };
+      root.onclick = (event) => {
+        if (event.target === root && this.interactionPreviewModalClose?.backdrop !== false) {
+          this.closeInteractionPreviewModal();
+        }
+      };
       dialog?.setAttribute("aria-label", interaction?.name || this.t("interactionPreviewMode"));
       root.hidden = false;
       this.interactionPreviewModalTrigger = this.interactionElement(interaction?.trigger?.nodeId);
@@ -11561,11 +11606,13 @@ closeInteractionPreviewModal(options = {}) {
         return false;
       }
       root.hidden = true;
+      root.onclick = null;
       content?.replaceChildren();
       if (options.restoreFocus !== false) {
         this.interactionPreviewModalTrigger?.focus?.();
       }
       this.interactionPreviewModalTrigger = null;
+      this.interactionPreviewModalClose = null;
       return true;
     },
 
@@ -11606,10 +11653,15 @@ handleInteractionPreviewClick(event) {
     },
 
 handleInteractionPreviewKeydown(event) {
-      if (this.host && event.composedPath?.().includes(this.host)) {
+      const eventInsideEditor = this.host && event.composedPath?.().includes(this.host);
+      if (eventInsideEditor && event.key !== "Escape") {
         return;
       }
       if (event.key === "Escape") {
+        const modal = this.shadow?.querySelector('[data-role="interaction-preview-modal"]');
+        if (modal && !modal.hidden && this.interactionPreviewModalClose?.escape === false) {
+          return;
+        }
         event.preventDefault();
         event.stopImmediatePropagation();
         if (!this.closeInteractionPreviewModal()) {
@@ -11860,6 +11912,7 @@ interactionWizardAdvancedMarkup() {
       const action = this.interactionWizardAction;
       const supportsEffect = this.interactionActionNeedsTarget(action);
       const supportsNewWindow = action === "openUrl";
+      const supportsModalClose = action === "openModal";
       if (!supportsEffect && !supportsNewWindow) {
         return "";
       }
@@ -11883,6 +11936,14 @@ interactionWizardAdvancedMarkup() {
             <label><span>${escapeHtml(this.t("interactionNewWindow"))}</span>
               <input data-role="interaction-new-window" data-wizard-control="newWindow" type="checkbox"${this.interactionWizardNewWindow ? " checked" : ""}>
             </label>
+          ` : ""}
+          ${supportsModalClose ? `
+            <fieldset>
+              <legend>${escapeHtml(this.t("interactionModalCloseTitle"))}</legend>
+              <label><input type="checkbox" checked disabled> ${escapeHtml(this.t("interactionModalCloseButton"))}</label>
+              <label><input data-wizard-control="modalBackdrop" type="checkbox"${this.interactionWizardModalBackdrop ? " checked" : ""}> ${escapeHtml(this.t("interactionModalCloseBackdrop"))}</label>
+              <label><input data-wizard-control="modalEscape" type="checkbox"${this.interactionWizardModalEscape ? " checked" : ""}> ${escapeHtml(this.t("interactionModalCloseEscape"))}</label>
+            </fieldset>
           ` : ""}
         </div>
       ` : "";
@@ -12221,6 +12282,8 @@ refreshInteractionPanel() {
       this.interactionWizardPageId = "";
       this.interactionWizardUrl = "";
       this.interactionWizardNewWindow = true;
+      this.interactionWizardModalBackdrop = true;
+      this.interactionWizardModalEscape = true;
       this.interactionWizardEffect = "none";
       this.interactionWizardDuration = 400;
       this.interactionAdvancedOpen = false;
@@ -12232,6 +12295,7 @@ refreshInteractionPanel() {
       this.interactionPreviewElementStates = new Map();
       this.interactionPreviewSequenceEntries = [];
       this.interactionPreviewSequenceIndex = 0;
+      this.interactionPreviewModalClose = null;
       this.pendingInteractionTriggerNodeId = "";
       this.interactions = [];
       this.sequences = [];

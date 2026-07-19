@@ -172,6 +172,11 @@
       return false;
     }
     closeInteractionModal();
+    const closeOptions = {
+      button: true,
+      backdrop: interaction.action?.close?.backdrop !== false,
+      escape: interaction.action?.close?.escape !== false
+    };
 
     const root = document.createElement("div");
     root.setAttribute("data-hsm-interaction-modal", interaction.id || "modal");
@@ -232,7 +237,7 @@
     });
 
     const onKeydown = (event) => {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && closeOptions.escape) {
         event.preventDefault();
         closeInteractionModal();
         return;
@@ -259,7 +264,7 @@
 
     close.addEventListener("click", closeInteractionModal);
     root.addEventListener("click", (event) => {
-      if (event.target === root) {
+      if (event.target === root && closeOptions.backdrop) {
         closeInteractionModal();
       }
     });
