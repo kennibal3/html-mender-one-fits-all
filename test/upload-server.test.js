@@ -163,6 +163,53 @@ test("project scene manifest follows modal interactions across save and restart"
   }
 });
 
+test("static modal scenes are discovered on upload and remain stable after restart", async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), "html-mender-static-modal-server-"));
+  process.env.HTML_MENDER_DATA_DIR = dataDir;
+  const serverModule = await import(`../src/server.js?static-modal-test=${Date.now()}`);
+  let runtime = await serverModule.startServer({ host: "127.0.0.1", port: 0 });
+  let projectId = "";
+
+  try {
+    const fixtureHtml = await readFile(
+      new URL("./fixtures/deep-content-v1/g8-23-nested-modal/index.html", import.meta.url),
+      "utf8"
+    );
+    const form = new FormData();
+    form.append("taskName", "嵌套弹窗样本");
+    form.append("files", new Blob([fixtureHtml], { type: "text/html" }), "index.html");
+    const created = await fetch(`${runtime.url}/api/upload`, { method: "POST", body: form })
+      .then((response) => response.json());
+    projectId = created.project.id;
+
+    const staticScenes = created.project.sceneManifest.scenes.filter(
+      (scene) => scene.discovery?.source === "static-scan"
+    );
+    assert.equal(staticScenes.length, 2);
+    assert.deepEqual(staticScenes.map((scene) => scene.title), ["课程介绍", "任务详情"]);
+    assert.equal(staticScenes[0].parentSceneId, "scene:page:p001");
+    assert.equal(staticScenes[1].parentSceneId, staticScenes[0].id);
+    assert.deepEqual(staticScenes.map((scene) => scene.discovery.status), ["pending", "pending"]);
+    const initialSceneIds = staticScenes.map((scene) => scene.id);
+
+    await runtime.close();
+    runtime = null;
+    const restartedModule = await import(`../src/server.js?static-modal-restart=${Date.now()}`);
+    runtime = await restartedModule.startServer({ host: "127.0.0.1", port: 0 });
+    const projects = await fetch(`${runtime.url}/api/projects`).then((response) => response.json());
+    const reopened = projects.projects.find((project) => project.id === projectId);
+    const reopenedStaticScenes = reopened.sceneManifest.scenes.filter(
+      (scene) => scene.discovery?.source === "static-scan"
+    );
+    assert.deepEqual(reopenedStaticScenes.map((scene) => scene.id), initialSceneIds);
+    assert.deepEqual(reopenedStaticScenes.map((scene) => scene.title), ["课程介绍", "任务详情"]);
+    assert.equal(reopenedStaticScenes[1].parentSceneId, reopenedStaticScenes[0].id);
+  } finally {
+    if (runtime) await runtime.close();
+    await rm(dataDir, { recursive: true, force: true });
+  }
+});
+
 test("each task page has independent versions and restoration creates a new version", async () => {
   const dataDir = await mkdtemp(join(tmpdir(), "html-mender-page-version-server-"));
   process.env.HTML_MENDER_DATA_DIR = dataDir;

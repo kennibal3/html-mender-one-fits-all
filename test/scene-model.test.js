@@ -1,9 +1,18 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   SCENE_MANIFEST_VERSION,
   buildProjectSceneManifest
 } from "../src/scene-model.js";
+
+const testDirectory = dirname(fileURLToPath(import.meta.url));
+
+function deepContentFixture(relativePath) {
+  return readFileSync(join(testDirectory, "fixtures", "deep-content-v1", relativePath), "utf8");
+}
 
 function interactionManifest(interactions) {
   return `<script type="application/json" data-hsm-interaction-manifest="1">${JSON.stringify({
@@ -164,4 +173,96 @@ test("scene manifest breaks cyclic modal ancestry", () => {
       parentSceneId = byId.get(parentSceneId)?.parentSceneId || null;
     }
   }
+});
+
+test("static scan discovers nested hidden modal candidates with visible titles", () => {
+  const html = deepContentFixture("g8-23-nested-modal/index.html");
+  const options = {
+    pages: [{ id: "p001", label: "第 1 页", title: "首页", sourceRelativePath: "index.html" }],
+    htmlByPageId: { p001: html }
+  };
+
+  const firstManifest = buildProjectSceneManifest(options);
+  const secondManifest = buildProjectSceneManifest(options);
+  const staticScenes = firstManifest.scenes.filter((scene) => scene.entry.type === "static");
+
+  assert.equal(staticScenes.length, 2);
+  assert.deepEqual(staticScenes.map((scene) => scene.title), ["课程介绍", "任务详情"]);
+  assert.equal(staticScenes[0].parentSceneId, "scene:page:p001");
+  assert.equal(staticScenes[1].parentSceneId, staticScenes[0].id);
+  assert.deepEqual(staticScenes.map((scene) => scene.discovery), [
+    { source: "static-scan", confidence: "medium", status: "pending" },
+    { source: "static-scan", confidence: "medium", status: "pending" }
+  ]);
+  assert.deepEqual(staticScenes.map((scene) => scene.entry.targetSelector), ["#intro", "#detail"]);
+  assert.deepEqual(
+    secondManifest.scenes.filter((scene) => scene.entry.type === "static").map((scene) => scene.id),
+    staticScenes.map((scene) => scene.id),
+    "同一份课件重复扫描必须得到稳定场景 ID"
+  );
+  assert.ok(staticScenes.every((scene) => /^scene:modal:p001:static:[a-f0-9]{12}$/.test(scene.id)));
+});
+
+test("static scan confirms semantic modals and ignores ordinary hidden animation", () => {
+  const html = `<!doctype html><html><body>
+    <p id="animation-tip" hidden>只是逐步出现的普通提示</p>
+    <div id="course-modal" class="course-modal" role="dialog" hidden>
+      <h2><span>课程</span> 介绍</h2>
+      <p>这里是弹出内容。</p>
+    </div>
+  </body></html>`;
+  const manifest = buildProjectSceneManifest({
+    pages: [{ id: "p001", label: "第 1 页", sourceRelativePath: "index.html" }],
+    htmlByPageId: { p001: html }
+  });
+  const staticScenes = manifest.scenes.filter((scene) => scene.entry.type === "static");
+
+  assert.equal(staticScenes.length, 1);
+  assert.equal(staticScenes[0].title, "课程 介绍");
+  assert.equal(staticScenes[0].entry.targetSelector, "#course-modal");
+  assert.deepEqual(staticScenes[0].discovery, {
+    source: "static-scan",
+    confidence: "high",
+    status: "confirmed"
+  });
+  assert.equal(manifest.scenes.some((scene) => scene.title.includes("animation-tip")), false);
+});
+
+test("static scan does not duplicate a modal already declared by an interaction", () => {
+  const interaction = {
+    id: "open-course",
+    name: "课程介绍",
+    trigger: { event: "click", nodeId: "open-course-trigger" },
+    action: { type: "openModal", targetId: "course-modal" }
+  };
+  const html = `<!doctype html><html><body>
+    <button data-hsm-node-id="open-course-trigger">打开课程介绍</button>
+    <section id="course-panel" class="modal" data-hsm-node-id="course-modal" hidden>
+      <h2>课程介绍</h2>
+    </section>
+    ${interactionManifest([interaction])}
+  </body></html>`;
+  const manifest = buildProjectSceneManifest({
+    pages: [{ id: "p001", label: "第 1 页", sourceRelativePath: "index.html" }],
+    htmlByPageId: { p001: html }
+  });
+
+  assert.deepEqual(manifest.scenes.map((scene) => scene.id), [
+    "scene:page:p001",
+    "scene:modal:p001:open-course"
+  ]);
+});
+
+test("static scan does not confuse data attributes with modal visibility attributes", () => {
+  const html = `<!doctype html><html><body>
+    <section data-id="ordinary-card" data-hidden="true" aria-labelledby="ordinary-title">
+      <h2 id="ordinary-title">普通页面卡片</h2>
+    </section>
+  </body></html>`;
+  const manifest = buildProjectSceneManifest({
+    pages: [{ id: "p001", label: "第 1 页", sourceRelativePath: "index.html" }],
+    htmlByPageId: { p001: html }
+  });
+
+  assert.deepEqual(manifest.scenes.map((scene) => scene.id), ["scene:page:p001"]);
 });
