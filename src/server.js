@@ -6,6 +6,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { dirname, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { startHttpServer } from "./server-runtime.js";
+import { buildProjectSceneManifest } from "./scene-model.js";
 import { writeJsonAtomic } from "./task-store.js";
 import {
   commitProjectPageEdit,
@@ -34,7 +35,7 @@ const uploadDir = resolve(dataDir, "uploads");
 const outputDir = resolve(dataDir, "outputs");
 const projectsDir = resolve(dataDir, "projects");
 const archiveDir = resolve(dataDir, "archives");
-const EDITOR_RUNTIME_VERSION = 26;
+const EDITOR_RUNTIME_VERSION = 27;
 
 for (const dir of [uploadDir, outputDir, projectsDir, archiveDir]) {
   mkdirSync(dir, { recursive: true });
@@ -623,6 +624,7 @@ async function processHtmlTask({ files, taskName }) {
     versionCount: versions.length,
     editorRuntimeVersion: EDITOR_RUNTIME_VERSION
   };
+  await refreshProjectSceneManifest(project);
   await refreshProjectPageControls(project);
   return { project, rejected };
 }
@@ -726,6 +728,7 @@ async function processProjectUpload(file, taskName) {
       versionCount: versions.length,
       editorRuntimeVersion: EDITOR_RUNTIME_VERSION
     };
+    await refreshProjectSceneManifest(project);
     await refreshProjectPageControls(project);
     return project;
   } catch (error) {
@@ -790,6 +793,7 @@ async function createNextProjectVersion({ project, html, editRelativePath = "", 
   project.lastSavedAt = publicVersion.createdAt;
   project.updatedAt = publicVersion.createdAt;
   project.versionCount = project.versions.length;
+  await refreshProjectSceneManifest(project);
   await writeProjectMeta(project);
   return publicVersion;
 }
@@ -983,6 +987,7 @@ async function finalizePageManagementChange(project) {
   project.outputSize = project.pages.reduce((sum, page) => sum + (page.outputSize || 0), 0);
   project.mediaCounts = { ...(project.mediaCounts || {}), html: project.pages.length };
   project.updatedAt = new Date().toISOString();
+  await refreshProjectSceneManifest(project);
   await refreshProjectPageControls(project);
   await writeProjectMeta(project);
 }
@@ -1173,6 +1178,7 @@ async function hydrateProjectsFromDisk() {
       if (project?.id && project?.status) {
         let upgraded = ensureProjectIdentity(project);
         await ensureProjectPages(project);
+        upgraded = await refreshProjectSceneManifest(project) || upgraded;
         upgraded = await upgradeProjectEditorRuntime(project) || upgraded;
         await refreshProjectPageControls(project);
         projects.set(project.id, project);
@@ -1302,6 +1308,24 @@ async function listHtmlFiles(directoryPath, baseDir = directoryPath) {
     }
   }
   return files;
+}
+
+async function refreshProjectSceneManifest(project) {
+  const htmlByPageId = {};
+  for (const page of project.pages || []) {
+    if (!page?.id || !page.sourceRelativePath || !project.sourceDir) {
+      continue;
+    }
+    const sourcePath = resolve(project.sourceDir, ...page.sourceRelativePath.split("/"));
+    htmlByPageId[page.id] = await readFile(sourcePath, "utf8").catch(() => "");
+  }
+  const sceneManifest = buildProjectSceneManifest({
+    pages: project.pages || [],
+    htmlByPageId
+  });
+  const changed = JSON.stringify(project.sceneManifest || null) !== JSON.stringify(sceneManifest);
+  project.sceneManifest = sceneManifest;
+  return changed;
 }
 
 function sanitizeProjectPage(page) {

@@ -31,7 +31,7 @@ test("multiple HTML uploads create one named task that survives restart", async 
     assert.equal(payload.project.name, "七年级语文任务");
     assert.equal(payload.project.pageCount, 2);
     assert.equal(payload.project.pages[0].latestVersionId, "v001");
-    assert.equal(payload.project.editorRuntimeVersion, 26);
+    assert.equal(payload.project.editorRuntimeVersion, 27);
     projectId = payload.project.id;
 
     const editable = await fetch(`${runtime.url}${payload.project.pages[0].editUrl}`).then((result) => result.text());
@@ -64,7 +64,7 @@ test("multiple HTML uploads create one named task that survives restart", async 
     assert.equal(payload.projects.length, 1);
     assert.equal(payload.projects[0].name, "七年级语文任务");
     assert.equal(payload.projects[0].pageCount, 2);
-    assert.equal(payload.projects[0].editorRuntimeVersion, 26);
+    assert.equal(payload.projects[0].editorRuntimeVersion, 27);
     const upgradedEditable = await fetch(`${restarted.url}${payload.projects[0].pages[0].editUrl}`).then((result) => result.text());
     assert.match(upgradedEditable, /sidebarMouseDrag/);
     assert.match(upgradedEditable, /#html-slide-mender-root \{[\s\S]*?z-index: 2147483645 !important;/);
@@ -79,6 +79,86 @@ test("multiple HTML uploads create one named task that survives restart", async 
     assert.match(upgradedEditable, /enterInteractionMode/);
   } finally {
     await restarted.close();
+    await rm(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("project scene manifest follows modal interactions across save and restart", async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), "html-mender-scene-manifest-server-"));
+  process.env.HTML_MENDER_DATA_DIR = dataDir;
+  const serverModule = await import(`../src/server.js?scene-manifest-test=${Date.now()}`);
+  let runtime = await serverModule.startServer({ host: "127.0.0.1", port: 0 });
+  let projectId = "";
+
+  const manifestScript = (interactions) =>
+    `<script type="application/json" data-hsm-interaction-manifest="1">${JSON.stringify({
+      schemaVersion: "1.3",
+      interactions,
+      sequences: []
+    })}</script>`;
+  const outerInteraction = {
+    id: "open-course",
+    name: "课程介绍",
+    trigger: { event: "click", nodeId: "open-course-trigger" },
+    action: { type: "openModal", targetId: "course-modal" }
+  };
+  const nestedInteraction = {
+    id: "open-quiz",
+    name: "练习题",
+    trigger: { event: "click", nodeId: "open-quiz-trigger" },
+    action: { type: "openModal", targetId: "quiz-modal" }
+  };
+
+  try {
+    const initialHtml = `<!doctype html><html><body>
+      <button data-hsm-node-id="open-course-trigger">打开课程介绍</button>
+      <section data-hsm-node-id="course-modal" hidden>介绍</section>
+      ${manifestScript([outerInteraction])}
+    </body></html>`;
+    const form = new FormData();
+    form.append("taskName", "多层场景任务");
+    form.append("files", new Blob([initialHtml], { type: "text/html" }), "index.html");
+    const created = await fetch(`${runtime.url}/api/upload`, { method: "POST", body: form })
+      .then((response) => response.json());
+    projectId = created.project.id;
+    assert.equal(created.project.sceneManifest.schemaVersion, "1.0");
+    assert.deepEqual(created.project.sceneManifest.scenes.map((scene) => scene.id), [
+      "scene:page:p001",
+      "scene:modal:p001:open-course"
+    ]);
+
+    const nestedHtml = `<!doctype html><html><body>
+      <button data-hsm-node-id="open-course-trigger">打开课程介绍</button>
+      <section data-hsm-node-id="course-modal" hidden>
+        <button data-hsm-node-id="open-quiz-trigger">开始练习</button>
+        <section data-hsm-node-id="quiz-modal" hidden>题目</section>
+      </section>
+      ${manifestScript([outerInteraction, nestedInteraction])}
+    </body></html>`;
+    const saved = await fetch(`${runtime.url}/api/projects/${projectId}/versions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        editRelativePath: created.project.pages[0].editRelativePath,
+        html: nestedHtml,
+        note: "加入嵌套弹窗"
+      })
+    }).then((response) => response.json());
+    const nestedScene = saved.project.sceneManifest.scenes.find((scene) => scene.id === "scene:modal:p001:open-quiz");
+    assert.equal(nestedScene.parentSceneId, "scene:modal:p001:open-course");
+
+    await runtime.close();
+    runtime = null;
+    const restartedModule = await import(`../src/server.js?scene-manifest-restart=${Date.now()}`);
+    runtime = await restartedModule.startServer({ host: "127.0.0.1", port: 0 });
+    const projects = await fetch(`${runtime.url}/api/projects`).then((response) => response.json());
+    const reopened = projects.projects.find((project) => project.id === projectId);
+    assert.equal(
+      reopened.sceneManifest.scenes.find((scene) => scene.id === "scene:modal:p001:open-quiz").parentSceneId,
+      "scene:modal:p001:open-course"
+    );
+  } finally {
+    if (runtime) await runtime.close();
     await rm(dataDir, { recursive: true, force: true });
   }
 });

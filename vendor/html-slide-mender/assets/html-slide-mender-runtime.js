@@ -11129,8 +11129,25 @@ interactionElement(nodeId) {
       if (!nodeId) {
         return null;
       }
-      return Array.from(document.querySelectorAll(`[${INTERACTION_NODE_ATTRIBUTE}]`))
-        .find((element) => element.getAttribute(INTERACTION_NODE_ATTRIBUTE) === nodeId) || null;
+      const documentElement = Array.from(document.querySelectorAll(`[${INTERACTION_NODE_ATTRIBUTE}]`))
+        .find((element) => element.getAttribute(INTERACTION_NODE_ATTRIBUTE) === nodeId);
+      if (documentElement) {
+        return documentElement;
+      }
+      const modalTargets = (this.interactionPreviewModalStack || [])
+        .map((state) => state.target)
+        .reverse();
+      for (const modalTarget of modalTargets) {
+        if (modalTarget?.getAttribute?.(INTERACTION_NODE_ATTRIBUTE) === nodeId) {
+          return modalTarget;
+        }
+        const nestedElement = Array.from(modalTarget?.querySelectorAll?.(`[${INTERACTION_NODE_ATTRIBUTE}]`) || [])
+          .find((element) => element.getAttribute(INTERACTION_NODE_ATTRIBUTE) === nodeId);
+        if (nestedElement) {
+          return nestedElement;
+        }
+      }
+      return null;
     },
 
 interactionElementLabel(element) {
@@ -11446,7 +11463,9 @@ prepareInteractionPreviewState() {
     },
 
 restoreInteractionPreviewState() {
-      this.closeInteractionPreviewModal?.({ restoreFocus: false });
+      while (this.interactionPreviewModalStack?.length) {
+        this.closeInteractionPreviewModal?.({ restoreFocus: false });
+      }
       for (const [element, state] of this.interactionPreviewElementStates || []) {
         if (!element?.isConnected) {
           continue;
@@ -11579,27 +11598,49 @@ openInteractionPreviewModal(interaction, target) {
       if (!root || !content || !target) {
         return false;
       }
-      const clone = target.cloneNode(true);
-      clone.removeAttribute(INTERACTION_NODE_ATTRIBUTE);
-      clone.removeAttribute(INITIAL_ATTRIBUTE);
-      clone.removeAttribute("data-hsm-interaction-preview-hidden");
-      clone.removeAttribute("aria-hidden");
-      clone.style.removeProperty("display");
-      clone.querySelectorAll?.(`[${INTERACTION_NODE_ATTRIBUTE}]`).forEach((node) => node.removeAttribute(INTERACTION_NODE_ATTRIBUTE));
-      content.replaceChildren(clone);
-      this.interactionPreviewModalClose = {
+      this.interactionPreviewModalStack = this.interactionPreviewModalStack || [];
+      const trigger = this.interactionElement(interaction?.trigger?.nodeId);
+      const placeholder = document.createComment(`hsm-preview-modal:${interaction?.id || "modal"}`);
+      const attributes = Object.fromEntries([
+        "style",
+        "hidden",
+        "aria-hidden",
+        "data-hsm-interaction-preview-hidden"
+      ].map((name) => [name, {
+        present: target.hasAttribute(name),
+        value: target.getAttribute(name) || ""
+      }]));
+      target.replaceWith(placeholder);
+      target.removeAttribute("hidden");
+      this.previewSetVisible(target, true);
+      content.replaceChildren(target);
+      const closeOptions = {
         button: true,
         backdrop: interaction?.action?.close?.backdrop !== false,
         escape: interaction?.action?.close?.escape !== false
       };
+      const modalState = {
+        target,
+        placeholder,
+        attributes,
+        trigger,
+        closeOptions,
+        label: interaction?.name || this.t("interactionPreviewMode"),
+        interactionId: String(interaction?.id || ""),
+        sceneId: String(interaction?.sceneId || interaction?.action?.sceneId || interaction?.id || "")
+      };
+      this.interactionPreviewModalStack.push(modalState);
+      this.emitInteractionPreviewSceneEvent("scene.entered", modalState, this.interactionPreviewModalStack.length);
+      this.interactionPreviewModalClose = closeOptions;
       root.onclick = (event) => {
-        if (event.target === root && this.interactionPreviewModalClose?.backdrop !== false) {
+        const current = this.interactionPreviewModalStack?.at(-1);
+        if (event.target === root && current?.closeOptions?.backdrop !== false) {
           this.closeInteractionPreviewModal();
         }
       };
       dialog?.setAttribute("aria-label", interaction?.name || this.t("interactionPreviewMode"));
       root.hidden = false;
-      this.interactionPreviewModalTrigger = this.interactionElement(interaction?.trigger?.nodeId);
+      this.interactionPreviewModalTrigger = trigger;
       this.shadow?.querySelector('[data-action="close-interaction-preview-modal"]')?.focus?.();
       this.playInteractionPreviewEffect(dialog, interaction?.effect);
       return true;
@@ -11611,15 +11652,55 @@ closeInteractionPreviewModal(options = {}) {
       if (!root || root.hidden) {
         return false;
       }
-      root.hidden = true;
-      root.onclick = null;
-      content?.replaceChildren();
-      if (options.restoreFocus !== false) {
-        this.interactionPreviewModalTrigger?.focus?.();
+      const stack = this.interactionPreviewModalStack || [];
+      const depth = stack.length;
+      const state = stack.pop();
+      if (!state) {
+        root.hidden = true;
+        return false;
       }
-      this.interactionPreviewModalTrigger = null;
-      this.interactionPreviewModalClose = null;
+      if (state?.placeholder?.parentNode && state.target) {
+        state.placeholder.replaceWith(state.target);
+        for (const [name, attribute] of Object.entries(state.attributes)) {
+          if (attribute.present) {
+            state.target.setAttribute(name, attribute.value);
+          } else {
+            state.target.removeAttribute(name);
+          }
+        }
+      }
+      const previous = stack.at(-1);
+      if (previous?.target) {
+        content?.replaceChildren(previous.target);
+        this.interactionPreviewModalClose = previous.closeOptions;
+        this.interactionPreviewModalTrigger = previous.trigger;
+        root.querySelector?.('[role="dialog"]')?.setAttribute("aria-label", previous.label);
+      } else {
+        root.hidden = true;
+        root.onclick = null;
+        content?.replaceChildren();
+        this.interactionPreviewModalClose = null;
+        this.interactionPreviewModalTrigger = null;
+      }
+      if (options.restoreFocus !== false) {
+        state.trigger?.focus?.();
+      }
+      this.emitInteractionPreviewSceneEvent("scene.exited", state, depth);
       return true;
+    },
+
+emitInteractionPreviewSceneEvent(type, state, depth) {
+      window.dispatchEvent(new CustomEvent("hsm-scene-event", {
+        detail: {
+          schemaVersion: SCHEMA_VERSION,
+          type,
+          timestamp: new Date().toISOString(),
+          sceneId: state?.sceneId || "",
+          interactionId: state?.interactionId || "",
+          depth,
+          preview: true
+        }
+      }));
     },
 
 advanceInteractionPreviewSequence() {
@@ -11639,10 +11720,14 @@ advanceInteractionPreviewSequence() {
     },
 
 handleInteractionPreviewClick(event) {
-      if (!this.interactionPreviewActive || this.host && event.composedPath?.().includes(this.host)) {
+      const eventPath = event.composedPath?.() || [];
+      const modalContent = this.shadow?.querySelector('[data-role="interaction-preview-dialog-content"]');
+      const insidePreviewModal = Boolean(modalContent && eventPath.includes(modalContent));
+      if (!this.interactionPreviewActive || (this.host && eventPath.includes(this.host) && !insidePreviewModal)) {
         return;
       }
-      const triggerElement = event.target?.closest?.(`[${INTERACTION_NODE_ATTRIBUTE}]`);
+      const triggerElement = eventPath.find((node) => node?.hasAttribute?.(INTERACTION_NODE_ATTRIBUTE))
+        || event.target?.closest?.(`[${INTERACTION_NODE_ATTRIBUTE}]`);
       const nodeId = triggerElement?.getAttribute?.(INTERACTION_NODE_ATTRIBUTE) || "";
       const interaction = this.interactions?.find((item) => item.trigger?.nodeId === nodeId);
       if (interaction) {

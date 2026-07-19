@@ -153,6 +153,189 @@ test("A2 ②测试预览：弹窗置顶并按配置关闭且返回后恢复编�
   }
 });
 
+test("A2 编辑预览活动节点：保留原事件与内部互动并在关闭后恢复", async () => {
+  const browser = await launchBrowser();
+  const page = await browser.newPage();
+  let directory = "";
+  try {
+    directory = await openA2Editor(page);
+    const result = await page.evaluate(() => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      const trigger = document.querySelector("#trigger");
+      const target = document.querySelector("#target");
+      target.innerHTML = `
+        <input id="preview-live-input" value="初始内容">
+        <button id="preview-original-handler" type="button">运行原事件</button>
+        <button id="preview-detail-trigger" type="button">显示详细说明</button>
+        <p id="preview-detail-target">弹窗内互动成功</p>
+      `;
+      const detailTrigger = target.querySelector("#preview-detail-trigger");
+      const detailTarget = target.querySelector("#preview-detail-target");
+      const originalHandler = target.querySelector("#preview-original-handler");
+      const targetId = editor.ensureInteractionElementId(target);
+      const outerInteraction = {
+        id: "preview-live-modal",
+        name: "活动预览弹窗",
+        trigger: { event: "click", nodeId: editor.ensureInteractionElementId(trigger) },
+        action: { type: "openModal", targetId, close: { button: true, backdrop: true, escape: true } },
+        initialState: { target: "hidden" },
+        effect: { type: "none", duration: 400 },
+        record: { type: "interaction.activated" }
+      };
+      const detailInteraction = {
+        id: "preview-live-detail",
+        name: "显示详细说明",
+        trigger: { event: "click", nodeId: editor.ensureInteractionElementId(detailTrigger) },
+        action: { type: "showVisibility", targetId: editor.ensureInteractionElementId(detailTarget) },
+        initialState: { target: "hidden" },
+        effect: { type: "none", duration: 400 },
+        record: { type: "interaction.activated" }
+      };
+      let originalHandlerCount = 0;
+      originalHandler.addEventListener("click", () => {
+        originalHandlerCount += 1;
+      });
+      target.querySelector("#preview-live-input").value = "教师已输入";
+      const originalParent = target.parentNode;
+      const originalNextSibling = target.nextSibling;
+
+      editor.enterInteractionMode();
+      editor.interactions = [outerInteraction, detailInteraction];
+      editor.startInteractionPreview();
+      editor.activateInteractionPreview(outerInteraction);
+      const content = editor.shadow.querySelector('[data-role="interaction-preview-dialog-content"]');
+      const modalTarget = content.querySelector("#target");
+      const usesLiveTarget = modalTarget === target;
+      modalTarget.querySelector("#preview-original-handler").click();
+      modalTarget.querySelector("#preview-detail-trigger").click();
+      const detailVisible = !detailTarget.hidden && getComputedStyle(detailTarget).display !== "none";
+      const inputValue = modalTarget.querySelector("#preview-live-input").value;
+      editor.closeInteractionPreviewModal();
+      const restored = target.parentNode === originalParent && target.nextSibling === originalNextSibling;
+      const hiddenAfterClose = target.hidden || getComputedStyle(target).display === "none";
+      editor.stopInteractionPreview({ silent: true });
+      return {
+        usesLiveTarget,
+        originalHandlerCount,
+        detailVisible,
+        inputValue,
+        restored,
+        hiddenAfterClose
+      };
+    });
+
+    assert.deepEqual(result, {
+      usesLiveTarget: true,
+      originalHandlerCount: 1,
+      detailVisible: true,
+      inputValue: "教师已输入",
+      restored: true,
+      hiddenAfterClose: true
+    });
+  } finally {
+    await page.close();
+    await browser.close();
+    if (directory) await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("A2 编辑预览多层场景：关闭子弹窗后恢复父弹窗状态", async () => {
+  const browser = await launchBrowser();
+  const page = await browser.newPage();
+  let directory = "";
+  try {
+    directory = await openA2Editor(page);
+    const result = await page.evaluate(() => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      const trigger = document.querySelector("#trigger");
+      const outerTarget = document.querySelector("#target");
+      outerTarget.innerHTML = `
+        <p id="parent-state">父弹窗状态保留</p>
+        <button id="preview-inner-trigger" type="button">打开子弹窗</button>
+        <section id="preview-inner-target"><h3>子弹窗内容</h3></section>
+      `;
+      const innerTrigger = outerTarget.querySelector("#preview-inner-trigger");
+      const innerTarget = outerTarget.querySelector("#preview-inner-target");
+      const outerInteraction = {
+        id: "preview-outer-modal",
+        name: "父弹窗",
+        trigger: { event: "click", nodeId: editor.ensureInteractionElementId(trigger) },
+        action: {
+          type: "openModal",
+          targetId: editor.ensureInteractionElementId(outerTarget),
+          close: { button: true, backdrop: true, escape: true }
+        },
+        initialState: { target: "hidden" },
+        effect: { type: "none", duration: 400 },
+        record: { type: "interaction.activated" }
+      };
+      const innerInteraction = {
+        id: "preview-inner-modal",
+        name: "子弹窗",
+        trigger: { event: "click", nodeId: editor.ensureInteractionElementId(innerTrigger) },
+        action: {
+          type: "openModal",
+          targetId: editor.ensureInteractionElementId(innerTarget),
+          close: { button: true, backdrop: true, escape: true }
+        },
+        initialState: { target: "hidden" },
+        effect: { type: "none", duration: 400 },
+        record: { type: "interaction.activated" }
+      };
+      const originalParent = outerTarget.parentNode;
+      const sceneEvents = [];
+      window.addEventListener("hsm-scene-event", (event) => {
+        sceneEvents.push({
+          type: event.detail?.type,
+          interactionId: event.detail?.interactionId,
+          depth: event.detail?.depth,
+          preview: event.detail?.preview
+        });
+      });
+      editor.enterInteractionMode();
+      editor.interactions = [outerInteraction, innerInteraction];
+      editor.startInteractionPreview();
+      editor.activateInteractionPreview(outerInteraction);
+      const content = editor.shadow.querySelector('[data-role="interaction-preview-dialog-content"]');
+      content.querySelector("#preview-inner-trigger").click();
+      const childOpen = Boolean(content.querySelector("#preview-inner-target"));
+      const depthWhenChildOpen = editor.interactionPreviewModalStack?.length || 0;
+      editor.closeInteractionPreviewModal();
+      const parentRestored = Boolean(content.querySelector("#target")?.querySelector("#parent-state"));
+      const depthAfterChildClose = editor.interactionPreviewModalStack?.length || 0;
+      editor.closeInteractionPreviewModal();
+      const fullyRestored = outerTarget.parentNode === originalParent;
+      editor.stopInteractionPreview({ silent: true });
+      return {
+        childOpen,
+        depthWhenChildOpen,
+        parentRestored,
+        depthAfterChildClose,
+        fullyRestored,
+        sceneEvents
+      };
+    });
+
+    assert.deepEqual(result, {
+      childOpen: true,
+      depthWhenChildOpen: 2,
+      parentRestored: true,
+      depthAfterChildClose: 1,
+      fullyRestored: true,
+      sceneEvents: [
+        { type: "scene.entered", interactionId: "preview-outer-modal", depth: 1, preview: true },
+        { type: "scene.entered", interactionId: "preview-inner-modal", depth: 2, preview: true },
+        { type: "scene.exited", interactionId: "preview-inner-modal", depth: 2, preview: true },
+        { type: "scene.exited", interactionId: "preview-outer-modal", depth: 1, preview: true }
+      ]
+    });
+  } finally {
+    await page.close();
+    await browser.close();
+    if (directory) await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("A2 ⑥导出后独立运行：触摸可关闭、层级正确且 console 零报错", async () => {
   const browser = await launchBrowser();
   const context = await browser.newContext({
@@ -220,6 +403,183 @@ test("A2 ⑥导出后独立运行：触摸可关闭、层级正确且 console �
   } finally {
     await page.close();
     await context.close();
+    await browser.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("A2 活动节点：导出弹窗保留原事件与表单状态并在关闭后归位", async () => {
+  const browser = await launchBrowser();
+  const page = await browser.newPage();
+  const directory = await mkdtemp(join(tmpdir(), "html-mender-a2-live-node-"));
+  try {
+    const interactionRuntime = await readFile(
+      new URL("../vendor/html-slide-mender/assets/html-slide-mender-interactions.js", import.meta.url),
+      "utf8"
+    );
+    const exportPath = join(directory, "a2-live-node.html");
+    const manifest = {
+      schemaVersion: "1.3",
+      interactions: [{
+        id: "a2-live-modal",
+        name: "活动内容弹窗",
+        trigger: { event: "click", nodeId: "modal-trigger" },
+        action: {
+          type: "openModal",
+          targetId: "modal-target",
+          close: { button: true, backdrop: true, escape: true }
+        },
+        initialState: { target: "hidden" },
+        effect: { type: "none", duration: 400 }
+      }],
+      sequences: []
+    };
+    await writeFile(exportPath, `<!doctype html><html><head><meta charset="utf-8"><title>A2 活动节点</title></head><body>
+      <button data-hsm-node-id="modal-trigger">打开活动弹窗</button>
+      <div id="original-parent">
+        <span id="before-target">之前</span>
+        <section id="live-target" data-hsm-node-id="modal-target" hidden>
+          <input id="live-input" value="初始内容">
+          <button id="original-handler" type="button">运行原事件</button>
+        </section>
+        <span id="after-target">之后</span>
+      </div>
+      <script>
+        window.__liveTarget = document.querySelector("#live-target");
+        window.__liveParent = window.__liveTarget.parentNode;
+        window.__liveNextSibling = window.__liveTarget.nextSibling;
+        window.__originalHandlerCount = 0;
+        document.querySelector("#original-handler").addEventListener("click", () => {
+          window.__originalHandlerCount += 1;
+        });
+        document.querySelector("#live-input").value = "教师已输入";
+      </script>
+      <script type="application/json" data-hsm-interaction-manifest="1">${JSON.stringify(manifest)}</script>
+      <script>${interactionRuntime.replace(/<\/script/gi, "<\\/script")}</script>
+    </body></html>`, "utf8");
+
+    await page.goto(pathToFileURL(exportPath).href);
+    await page.locator('[data-hsm-node-id="modal-trigger"]').click();
+    const modal = page.locator('[data-hsm-interaction-modal="a2-live-modal"]');
+    await modal.waitFor({ state: "visible" });
+    assert.equal(await modal.locator("#live-target").evaluate((node) => node === window.__liveTarget), true);
+    assert.equal(await modal.locator("#live-input").inputValue(), "教师已输入");
+    await modal.locator("#original-handler").click();
+    assert.equal(await page.evaluate(() => window.__originalHandlerCount), 1);
+
+    await modal.getByRole("button", { name: "关闭弹窗" }).click();
+    await modal.waitFor({ state: "detached" });
+    const restored = await page.evaluate(() => ({
+      sameParent: window.__liveTarget.parentNode === window.__liveParent,
+      sameNextSibling: window.__liveTarget.nextSibling === window.__liveNextSibling,
+      hidden: window.__liveTarget.hidden,
+      inputValue: window.__liveTarget.querySelector("#live-input").value
+    }));
+    assert.deepEqual(restored, {
+      sameParent: true,
+      sameNextSibling: true,
+      hidden: true,
+      inputValue: "教师已输入"
+    });
+  } finally {
+    await page.close();
+    await browser.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("A2 多层场景：弹窗内互动可运行且关闭子弹窗后返回父弹窗", async () => {
+  const browser = await launchBrowser();
+  const page = await browser.newPage();
+  const directory = await mkdtemp(join(tmpdir(), "html-mender-a2-modal-stack-"));
+  try {
+    const interactionRuntime = await readFile(
+      new URL("../vendor/html-slide-mender/assets/html-slide-mender-interactions.js", import.meta.url),
+      "utf8"
+    );
+    const exportPath = join(directory, "a2-modal-stack.html");
+    const manifest = {
+      schemaVersion: "1.3",
+      interactions: [
+        {
+          id: "outer-modal",
+          name: "课程介绍",
+          trigger: { event: "click", nodeId: "outer-trigger" },
+          action: { type: "openModal", targetId: "outer-target", close: { button: true, backdrop: true, escape: true } },
+          initialState: { target: "hidden" },
+          effect: { type: "none", duration: 400 }
+        },
+        {
+          id: "show-detail",
+          name: "显示详细说明",
+          trigger: { event: "click", nodeId: "detail-trigger" },
+          action: { type: "showVisibility", targetId: "detail-target" },
+          initialState: { target: "hidden" },
+          effect: { type: "none", duration: 400 }
+        },
+        {
+          id: "inner-modal",
+          name: "练习题",
+          trigger: { event: "click", nodeId: "inner-trigger" },
+          action: { type: "openModal", targetId: "inner-target", close: { button: true, backdrop: true, escape: true } },
+          initialState: { target: "hidden" },
+          effect: { type: "none", duration: 400 }
+        }
+      ],
+      sequences: []
+    };
+    await writeFile(exportPath, `<!doctype html><html><head><meta charset="utf-8"><title>A2 多层弹窗</title></head><body>
+      <button data-hsm-node-id="outer-trigger">打开课程介绍</button>
+      <section data-hsm-node-id="outer-target" hidden>
+        <h2>课程介绍</h2>
+        <button data-hsm-node-id="detail-trigger">显示详细说明</button>
+        <p data-hsm-node-id="detail-target" hidden>弹窗内部说明已经显示</p>
+        <button data-hsm-node-id="inner-trigger">打开练习题</button>
+        <section data-hsm-node-id="inner-target" hidden><h3>练习题内容</h3></section>
+      </section>
+      <script>
+        window.__sceneEvents = [];
+        window.addEventListener("hsm-scene-event", (event) => {
+          window.__sceneEvents.push({
+            type: event.detail && event.detail.type,
+            interactionId: event.detail && event.detail.interactionId,
+            depth: event.detail && event.detail.depth,
+            preview: event.detail && event.detail.preview
+          });
+        });
+      </script>
+      <script type="application/json" data-hsm-interaction-manifest="1">${JSON.stringify(manifest)}</script>
+      <script>${interactionRuntime.replace(/<\/script/gi, "<\\/script")}</script>
+    </body></html>`, "utf8");
+
+    await page.goto(pathToFileURL(exportPath).href);
+    await page.locator('[data-hsm-node-id="outer-trigger"]').click();
+    const outerModal = page.locator('[data-hsm-interaction-modal="outer-modal"]');
+    await outerModal.waitFor({ state: "visible" });
+    await outerModal.locator('[data-hsm-node-id="detail-trigger"]').click();
+    assert.equal(await outerModal.getByText("弹窗内部说明已经显示").isVisible(), true);
+
+    await outerModal.locator('[data-hsm-node-id="inner-trigger"]').click();
+    const innerModal = page.locator('[data-hsm-interaction-modal="inner-modal"]');
+    await innerModal.waitFor({ state: "visible" });
+    assert.equal(await page.locator("[data-hsm-interaction-modal]").count(), 2);
+    assert.equal(await innerModal.getByText("练习题内容").isVisible(), true);
+
+    await innerModal.getByRole("button", { name: "关闭弹窗" }).click();
+    await innerModal.waitFor({ state: "detached" });
+    assert.equal(await outerModal.isVisible(), true);
+    assert.equal(await outerModal.getByText("弹窗内部说明已经显示").isVisible(), true);
+    await outerModal.getByRole("button", { name: "关闭弹窗" }).click();
+    await outerModal.waitFor({ state: "detached" });
+    assert.equal(await page.locator('[data-hsm-node-id="outer-target"]').evaluate((node) => node.hidden), true);
+    assert.deepEqual(await page.evaluate(() => window.__sceneEvents), [
+      { type: "scene.entered", interactionId: "outer-modal", depth: 1, preview: false },
+      { type: "scene.entered", interactionId: "inner-modal", depth: 2, preview: false },
+      { type: "scene.exited", interactionId: "inner-modal", depth: 2, preview: false },
+      { type: "scene.exited", interactionId: "outer-modal", depth: 1, preview: false }
+    ]);
+  } finally {
+    await page.close();
     await browser.close();
     await rm(directory, { recursive: true, force: true });
   }
