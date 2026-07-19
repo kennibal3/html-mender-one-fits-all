@@ -6,6 +6,7 @@ test("workspace UI exposes one unified upload entry, recent tasks, versions and 
   const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
   const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
 
+  assert.match(html, /<form\b[^>]*id="upload-form"[^>]*\bnovalidate\b/);
   assert.match(html, /id="task-name"/);
   assert.match(html, /id="asset-input"/);
   assert.doesNotMatch(html, /id="project-form"/);
