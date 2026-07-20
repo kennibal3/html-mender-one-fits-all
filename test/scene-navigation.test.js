@@ -279,6 +279,96 @@ test("场景树可进入嵌套真实节点、逐层返回并安全保存", async
   }
 });
 
+test("场景树进入弹窗后可编辑真实文字，返回并重新进入时提交编辑状态", async () => {
+  const browser = await launchBrowser();
+  const page = await browser.newPage();
+  const consoleErrors = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => consoleErrors.push(error.message));
+  let directory = "";
+  try {
+    directory = await openNestedSceneEditor(page);
+    await page.evaluate(() => {
+      window.__editableIntroReference = document.querySelector("#intro");
+      document.querySelector("#teacher-note").value = "教师已输入";
+      document.querySelector("#toggle-tip").addEventListener("click", (event) => {
+        event.currentTarget.dataset.runCount = String(Number(event.currentTarget.dataset.runCount || 0) + 1);
+        event.stopImmediatePropagation();
+      }, { capture: true });
+    });
+
+    await page.locator('[data-hsm-open-scene="scene:modal:p001:outer"]').click();
+    await page.waitForFunction(() => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      return editor.sceneNavigationStack?.length === 1
+        && Array.from(editor.items.values()).some((item) => item.element?.id === "intro-title");
+    });
+    const titleItemId = await page.evaluate(() => Array.from(window.__htmlSlideMenderBootstrap.editor.items.values())
+      .find((item) => item.element?.id === "intro-title")?.id || "");
+    assert.notEqual(titleItemId, "");
+
+    await page.locator("#intro-title").click();
+    assert.equal(
+      await page.evaluate(() => window.__htmlSlideMenderBootstrap.editor.editingTextId),
+      titleItemId
+    );
+    await page.locator("#intro-title").fill("课程须知");
+    await page.locator("#toggle-tip").click();
+
+    await page.locator('[data-hsm-scene-breadcrumb] button', { hasText: "首页" }).click();
+    await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.sceneNavigationStack?.length === 0);
+    const returnedHome = await page.evaluate(() => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      const title = document.querySelector("#intro-title");
+      return {
+        title: title?.textContent,
+        editingTextId: editor.editingTextId,
+        contenteditable: title?.getAttribute("contenteditable"),
+        spellcheck: title?.getAttribute("spellcheck"),
+        undoLabel: editor.undoStack.at(-1)?.label,
+        introIsOriginal: document.querySelector("#intro") === window.__editableIntroReference,
+        introHidden: document.querySelector("#intro")?.hidden,
+        inputValue: document.querySelector("#teacher-note")?.value,
+        originalEventRunCount: document.querySelector("#toggle-tip")?.dataset.runCount
+      };
+    });
+
+    await page.locator('[data-hsm-open-scene="scene:modal:p001:outer"]').click();
+    await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.sceneNavigationStack?.length === 1);
+    const reentered = await page.evaluate(() => ({
+      title: document.querySelector("[data-hsm-scene-content] #intro-title")?.textContent,
+      editingTextId: window.__htmlSlideMenderBootstrap.editor.editingTextId,
+      inputValue: document.querySelector("[data-hsm-scene-content] #teacher-note")?.value,
+      originalEventRunCount: document.querySelector("[data-hsm-scene-content] #toggle-tip")?.dataset.runCount
+    }));
+
+    assert.deepEqual(returnedHome, {
+      title: "课程须知",
+      editingTextId: null,
+      contenteditable: null,
+      spellcheck: null,
+      undoLabel: "Edit text",
+      introIsOriginal: true,
+      introHidden: true,
+      inputValue: "教师已输入",
+      originalEventRunCount: "1"
+    });
+    assert.deepEqual(reentered, {
+      title: "课程须知",
+      editingTextId: null,
+      inputValue: "教师已输入",
+      originalEventRunCount: "1"
+    });
+    assert.deepEqual(consoleErrors, []);
+  } finally {
+    await page.close();
+    await browser.close();
+    if (directory) await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("真实点击弹窗后场景树与可见标题位置同步，逐层返回保留活动节点状态", async () => {
   const browser = await launchBrowser();
   const page = await browser.newPage();

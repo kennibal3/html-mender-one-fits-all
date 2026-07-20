@@ -92,7 +92,7 @@ test("interaction editing uses a guided mode that locks unrelated page tools", a
     "utf8"
   );
 
-  assert.match(runtime, /2026-07-15-guided-interactions-v2/);
+  assert.match(runtime, /2026-07-20-deep-modal-text-v1/);
   assert.match(runtime, /data-role="interaction-home"/);
   assert.match(runtime, /data-action="begin-click-interaction"/);
   assert.match(runtime, /data-action="begin-sequence-interaction"/);
@@ -142,7 +142,7 @@ test("completed interactions enter a live preview that can return to editing", a
     "utf8"
   );
 
-  assert.match(runtime, /2026-07-15-guided-interactions-v2/);
+  assert.match(runtime, /2026-07-20-deep-modal-text-v1/);
   assert.match(runtime, /data-interaction-preview="false"/);
   assert.match(runtime, /data-role="interaction-preview-toolbar"/);
   assert.match(runtime, /data-action="stop-interaction-preview"/);
@@ -212,7 +212,7 @@ test("editor runtime exposes page jump, modal, and reveal animation workflows", 
   assert.match(runtime, /goToPage/);
   assert.match(runtime, /openModal/);
   assert.match(runtime, /effect:/);
-  assert.match(runtime, /2026-07-15-guided-interactions-v2/);
+  assert.match(runtime, /2026-07-20-deep-modal-text-v1/);
 
   assert.match(interactionRuntime, /navigateToPage\(/);
   assert.match(interactionRuntime, /openInteractionModal\(/);
@@ -283,7 +283,7 @@ test("editor runtime exposes audio, media playback settings, and safe URL links"
     "utf8"
   );
 
-  assert.match(runtime, /2026-07-15-guided-interactions-v2/);
+  assert.match(runtime, /2026-07-20-deep-modal-text-v1/);
   assert.match(runtime, /audio\/mpeg/);
   assert.match(runtime, /audio\/wav/);
   assert.match(runtime, /audio\/ogg/);

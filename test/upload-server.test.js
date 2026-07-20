@@ -31,7 +31,7 @@ test("multiple HTML uploads create one named task that survives restart", async 
     assert.equal(payload.project.name, "七年级语文任务");
     assert.equal(payload.project.pageCount, 2);
     assert.equal(payload.project.pages[0].latestVersionId, "v001");
-    assert.equal(payload.project.editorRuntimeVersion, 27);
+    assert.equal(payload.project.editorRuntimeVersion, 28);
     projectId = payload.project.id;
 
     const editable = await fetch(`${runtime.url}${payload.project.pages[0].editUrl}`).then((result) => result.text());
@@ -64,7 +64,7 @@ test("multiple HTML uploads create one named task that survives restart", async 
     assert.equal(payload.projects.length, 1);
     assert.equal(payload.projects[0].name, "七年级语文任务");
     assert.equal(payload.projects[0].pageCount, 2);
-    assert.equal(payload.projects[0].editorRuntimeVersion, 27);
+    assert.equal(payload.projects[0].editorRuntimeVersion, 28);
     const upgradedEditable = await fetch(`${restarted.url}${payload.projects[0].pages[0].editUrl}`).then((result) => result.text());
     assert.match(upgradedEditable, /sidebarMouseDrag/);
     assert.match(upgradedEditable, /#html-slide-mender-root \{[\s\S]*?z-index: 2147483645 !important;/);

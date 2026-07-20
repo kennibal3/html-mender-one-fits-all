@@ -168,7 +168,7 @@
 (() => {
   const ns = window.HtmlSlideMenderExtension = window.HtmlSlideMenderExtension || {};
   const MESSAGE_NAMESPACE = "HTML_SLIDE_MENDER";
-  const EDITOR_BUILD_ID = "2026-07-15-guided-interactions-v2";
+  const EDITOR_BUILD_ID = "2026-07-20-deep-modal-text-v1";
   const ROOT_ID = "html-slide-mender-root";
   const INTERACTION_NODE_ATTRIBUTE = "data-hsm-node-id";
   const TEXT_SELECTOR = [
@@ -3018,6 +3018,7 @@ installEvents() {
       this.addEvent(document, "transitionend", () => this.scheduleScan(80), true);
       this.addEvent(document, "animationend", () => this.scheduleScan(80), true);
       this.addEvent(document, "pointerdown", (event) => this.handleDocumentPointerDown(event), true);
+      this.addEvent(document, "click", (event) => this.handleSceneContentClick?.(event), true);
       this.addEvent(document, "click", (event) => this.handleInteractionPreviewClick?.(event), true);
       this.addEvent(document, "keydown", (event) => this.handleDocumentKeydown(event), true);
       this.addEvent(document, "selectionchange", () => {
@@ -3647,6 +3648,41 @@ handleDocumentPointerDown(event) {
       }
 
       this.clearSelection();
+    },
+
+handleSceneContentClick(event) {
+      if (
+        !this.active
+        || !this.sceneNavigationStack?.length
+        || this.interactionPreviewActive
+        || this.isInteractionSelectionMode?.()
+        || this.isLayoutMode?.()
+      ) {
+        return;
+      }
+
+      const target = event.target;
+      const activeSceneTarget = this.sceneNavigationStack.at(-1)?.target;
+      if (
+        !target
+        || !activeSceneTarget?.contains?.(target)
+        || target.closest?.("button,a[href],input,textarea,select,summary,[contenteditable='true']")
+      ) {
+        return;
+      }
+
+      const item = Array.from(this.items.values()).find((candidate) =>
+        candidate.type === "text" && this.eventTargetsItem(target, candidate)
+      );
+      if (!item) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      this.closeOpenMenus();
+      this.selectItem(item.id);
+      this.enterTextEdit(item, event);
     },
 
 eventTargetsItem(target, item) {
