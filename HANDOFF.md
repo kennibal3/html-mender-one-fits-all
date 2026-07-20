@@ -1,6 +1,6 @@
 # HTML Mender 下一轮开发交接
 
-更新时间：2026-07-19
+更新时间：2026-07-20
 
 ## 1. 接手后先读
 
@@ -12,7 +12,7 @@
 
 GitHub：`kennibal3/html-mender-one-fits-all`
 
-当前分支：`feat/interactions-A`
+当前分支：`feat/modal-click-navigation`
 
 阶段一功能基线提交：
 
@@ -31,20 +31,20 @@ GitHub：`kennibal3/html-mender-one-fits-all`
 
 ## 2. 当前工作区状态
 
-阶段一已经在用户授权下提交为 `70c32a8`。规格同步已提交为 `a8e71d5` 并推送 `origin/feat/interactions-A`，没有创建 PR。
+PR #1 已于 2026-07-20 合并到 `main`：
 
-规格同步提交包含：
+- PR：`https://github.com/kennibal3/html-mender-one-fits-all/pull/1`
+- 合并提交：`dc41b05 Merge pull request #1 from kennibal3/feat/interactions-A`
+- 合并前最终功能提交：`bb64bcd fix: keep interaction preview lesson clicks accessible`
+- GitHub 检测：`Tests and security audit` 通过。
+
+本地 `main` 已安全快进到 `dc41b05`，与 `origin/main` 一致。下一格已经从该提交建立独立分支：
 
 ```text
-AGENTS.md
-HANDOFF.md
-docs/GOAL-深层内容编辑第一版.md
-docs/GOAL-互动功能完整验收.md
-docs/complex-scene-editing-design.md
-docs/development-progress-2026-07-19.md
+feat/modal-click-navigation
 ```
 
-当前样本库改动尚未提交，接手时必须先运行：
+更新本交接文档前工作区干净。接手时仍必须先运行：
 
 ```bash
 git status --short --branch
@@ -52,7 +52,7 @@ git diff --check
 git diff --stat
 ```
 
-禁止清理、覆盖或回退用户修改。除已授权的本次规格提交与推送外，后续提交、PR 和合并仍需重新确认。
+禁止清理、覆盖或回退用户修改。本交接文档的修改已经获得授权；后续生产代码修改、提交、推送、PR 和合并仍需按格重新确认。
 
 ## 3. 用户协作规则
 
@@ -88,6 +88,14 @@ A1–A5 已独立提交：
 ```text
 70c32a8 feat: add minimal scene model and live modal runtime
 ```
+
+本切片后续基础格也已完成并随 PR #1 合并：
+
+- 样本库：`9030abc test: add deep content sample library`
+- 静态弹窗发现：`aa2375b feat: discover static modal scenes`
+- 最小场景树与面包屑导航：`7c06bda feat: add modal scene navigation`
+- PR 自动检测：`8849448 ci: add pull request checks`
+- 编辑预览点击遮挡修复：`bb64bcd fix: keep interaction preview lesson clicks accessible`
 
 ## 5. 阶段一成果
 
@@ -192,7 +200,7 @@ docs/GOAL-深层内容编辑第一版.md
 - `test/fixtures/deep-content-v1/*`：8 个脱敏最小 HTML 样本。
 - `test/deep-content-sample-library.test.js`：样本数量、覆盖、子页面正反例和 iframe 安全占位校验。
 
-证据：样本测试 3/3 通过；全量测试从 105 增加到 108，108/108 通过；高危依赖漏洞为 0。样本库改动尚未提交或推送。
+证据：样本测试 3/3 通过；样本库已提交为 `9030abc`，并随 PR #1 合并。当前全量测试已经增长到 120 项，见下一节的最新证据。
 
 ## 9. 执行顺序
 
@@ -208,24 +216,47 @@ docs/GOAL-深层内容编辑第一版.md
 
 弹窗闭环的十步验收要求同时包含“真实点击”和“场景树进入”。因此允许在第 3 步实现闭环所必需的最小场景树与可见标题面包屑；完整人工维护体验仍在第 5 步补齐。
 
-## 10. 下一次允许做什么
+当前进度：第 1、2 步已完成；第 3 步中的静态发现、场景树强制进入、可见标题面包屑、嵌套真实节点进入与逐层返回已经完成。它们只是弹窗闭环的基础，不代表弹窗十步验收已经完成。
 
-用户已经确认：
+## 10. 最新验证证据
 
-1. A1–A5/全量基线验证；结果为 105/105 通过，高危依赖漏洞为 0。
-2. 将本次规格、交接和进度文档单独提交并推送当前分支。
-3. 建立样本库：只读来源索引、脱敏最小复现和样本覆盖校验测试；已经完成并通过验证。
+PR #1 合并前的最终验证结果：
 
-仍未授权：
+- 本地完整测试：120/120 通过。
+- Playwright 自带 Chromium 的 A5 专项测试：8/8 通过。
+- `npm audit --audit-level=high`：0 vulnerabilities。
+- JavaScript 语法检查和 `git diff --check` 通过。
+- GitHub PR 检测在全新 Linux 环境中通过，用时约 45 秒。
 
-- 修改生产代码。
-- 开始弹窗闭环功能实现。
-- 提交或推送当前样本库改动。
-- 创建 PR 或合并分支。
+CI 曾稳定复现 A5 点击失败：编辑器预览工具栏挡住了课件点击。`bb64bcd` 将工具栏空白区域改为不接收点击，只让“返回互动编辑”按钮接收点击，并增加了专门覆盖重叠位置的回归测试。这个修复属于编辑器预览外壳，因此没有改动导出运行时；导出路径的失败是前序测试中断造成的连锁失败，修复后独立导出测试恢复通过。
 
-样本库完成并留证据后，必须重新确认才能开始弹窗闭环的第一格失败测试。
+## 11. 下一格：真实点击与场景位置同步
 
-## 11. 常用命令
+### 给新手的解释
+
+现在老师已经可以从左侧“课件画面”列表强制打开弹窗，但直接点击课件原来的按钮时，编辑器还不会把左侧场景树和顶部面包屑同步到这个弹窗。就像老师已经走进房间，但地图上的当前位置还停留在大厅。
+
+下一格只解决这个位置同步问题，不提前做弹窗内部元素编辑或同源子页面。
+
+### 严格执行顺序
+
+1. 先阅读现有 A2 弹窗互动、`hsm-scene-event`、场景树进入栈和返回逻辑，不另起一套导航系统。
+2. 先写浏览器端失败测试：点击课件原按钮进入弹窗后，场景树选中状态和可见标题面包屑必须同步。
+3. 在同一测试中证明返回父画面后位置、真实节点、原事件和表单状态仍正确。
+4. 再写满足测试的最小实现；规格不清时停下来问，不自行扩大范围。
+5. 回归场景树强制进入、嵌套弹窗、A1–A5、保存与独立导出。
+6. 运行全量测试、Chromium 相关测试、语法检查、`git diff --check` 和高危依赖审计，逐项留证据。
+
+### 本格不做
+
+- 弹窗内部元素编辑与深层 A1–A5 配置。
+- 同源子 HTML 页面。
+- 人工登记、合并误识别和高级诊断。
+- iframe、SPA、Shadow DOM、Canvas 内部编辑及 B1–B8。
+
+生产代码尚未因本交接更新而获得授权。新任务必须先用不含技术术语的方式汇报理解、失败测试设计和影响范围，等用户确认后再修改代码。
+
+## 12. 常用命令
 
 ```bash
 cd "/Users/kdongnmt.edu/Desktop/new skills/html-mender/local-app"

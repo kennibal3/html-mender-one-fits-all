@@ -934,6 +934,36 @@ function buildVersionSaveInjection({ projectId, editRelativePath, pageNav = null
     });
   }
 
+  function renderSceneLocation(path = []) {
+    renderSceneBreadcrumb(path);
+    pageSidebar?.querySelectorAll("[data-hsm-open-scene]").forEach((button) => {
+      button.setAttribute("aria-current", path.some((scene) => scene?.id === button.dataset.hsmOpenScene) ? "true" : "false");
+    });
+  }
+
+  function interactionScenePath(detail = {}) {
+    const scene = scenes.find((candidate) =>
+      candidate?.type === "modal" && (
+        candidate.id === detail.sceneId
+        || candidate.entry?.interactionId === detail.interactionId
+        || candidate.entry?.interactionId === detail.sceneId
+      )
+    );
+    if (!scene) return [];
+    const sceneById = new Map(scenes.map((candidate) => [String(candidate?.id || ""), candidate]));
+    const path = [];
+    const visited = new Set();
+    let current = scene;
+    while (current?.id && !visited.has(current.id)) {
+      visited.add(current.id);
+      path.push(current);
+      const parentId = String(current.parentSceneId || "");
+      if (!parentId || parentId.startsWith("scene:page:")) break;
+      current = sceneById.get(parentId);
+    }
+    return path.reverse();
+  }
+
   function showSceneMessage(message = "") {
     if (sceneMessage) sceneMessage.textContent = message;
   }
@@ -954,13 +984,17 @@ function buildVersionSaveInjection({ projectId, editRelativePath, pageNav = null
     }
   }
 
-  renderSceneBreadcrumb([]);
+  renderSceneLocation([]);
   window.addEventListener("hsm-scene-navigation", (event) => {
     const path = Array.isArray(event.detail?.path) ? event.detail.path : [];
-    renderSceneBreadcrumb(path);
-    pageSidebar?.querySelectorAll("[data-hsm-open-scene]").forEach((button) => {
-      button.setAttribute("aria-current", path.some((scene) => scene?.id === button.dataset.hsmOpenScene) ? "true" : "false");
-    });
+    renderSceneLocation(path);
+  });
+  window.addEventListener("hsm-scene-event", (event) => {
+    const detail = event.detail || {};
+    if (detail.preview !== true || !["scene.entered", "scene.exited"].includes(detail.type)) return;
+    const path = interactionScenePath(detail);
+    if (!path.length) return;
+    renderSceneLocation(detail.type === "scene.exited" ? path.slice(0, -1) : path);
   });
 
   function setPageSidebarOpen(open) {
