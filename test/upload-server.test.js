@@ -37,7 +37,7 @@ test("multiple HTML uploads create one named task that survives restart", async 
     const editable = await fetch(`${runtime.url}${payload.project.pages[0].editUrl}`).then((result) => result.text());
     assert.match(editable, /html-slide-mender-skill:start/);
     assert.match(editable, /可编辑课件/);
-    assert.match(editable, /页面列表/);
+    assert.match(editable, /课件画面/);
     assert.match(editable, /data-hsm-page-sidebar/);
     const thumbnail = await fetch(
       `${runtime.url}/api/projects/${payload.project.id}/pages/${payload.project.pages[0].id}/thumbnail`
@@ -146,6 +146,9 @@ test("project scene manifest follows modal interactions across save and restart"
     }).then((response) => response.json());
     const nestedScene = saved.project.sceneManifest.scenes.find((scene) => scene.id === "scene:modal:p001:open-quiz");
     assert.equal(nestedScene.parentSceneId, "scene:modal:p001:open-course");
+    const savedEditable = await fetch(`${runtime.url}${saved.project.pages[0].editUrl}`).then((response) => response.text());
+    assert.match(savedEditable, /data-hsm-open-scene/);
+    assert.match(savedEditable, /scene:modal:p001:open-quiz/);
 
     await runtime.close();
     runtime = null;
@@ -191,6 +194,13 @@ test("static modal scenes are discovered on upload and remain stable after resta
     assert.equal(staticScenes[1].parentSceneId, staticScenes[0].id);
     assert.deepEqual(staticScenes.map((scene) => scene.discovery.status), ["pending", "pending"]);
     const initialSceneIds = staticScenes.map((scene) => scene.id);
+    const editable = await fetch(`${runtime.url}${created.project.pages[0].editUrl}`).then((response) => response.text());
+    assert.match(editable, /data-hsm-scene-tree/);
+    assert.match(editable, /data-hsm-open-scene/);
+    assert.match(editable, /"scenes":\[\{"id":"scene:modal:p001:static:/);
+    const injectedPageNav = JSON.parse(editable.match(/const pageNav = (\{[^\n]+\});/)?.[1] || "{}");
+    assert.equal(injectedPageNav.pageTitle, "首页");
+    assert.equal(injectedPageNav.pages[0].title, "首页");
 
     await runtime.close();
     runtime = null;
@@ -204,6 +214,11 @@ test("static modal scenes are discovered on upload and remain stable after resta
     assert.deepEqual(reopenedStaticScenes.map((scene) => scene.id), initialSceneIds);
     assert.deepEqual(reopenedStaticScenes.map((scene) => scene.title), ["课程介绍", "任务详情"]);
     assert.equal(reopenedStaticScenes[1].parentSceneId, reopenedStaticScenes[0].id);
+    const reopenedEditable = await fetch(`${runtime.url}${reopened.pages[0].editUrl}`).then((response) => response.text());
+    assert.match(reopenedEditable, /data-hsm-scene-tree/);
+    assert.match(reopenedEditable, /data-hsm-open-scene/);
+    assert.match(reopenedEditable, /课程介绍/);
+    assert.match(reopenedEditable, /任务详情/);
   } finally {
     if (runtime) await runtime.close();
     await rm(dataDir, { recursive: true, force: true });

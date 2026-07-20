@@ -628,6 +628,71 @@ function buildVersionSaveInjection({ projectId, editRelativePath, pageNav = null
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .hsm-scene-tree,
+  .hsm-scene-children {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .hsm-scene-tree {
+    padding: 2px 4px 4px 34px;
+  }
+  .hsm-scene-children {
+    padding: 4px 0 0 14px;
+  }
+  .hsm-scene-open {
+    width: 100%;
+    min-height: 30px;
+    border: 1px solid rgba(15, 118, 110, 0.28);
+    background: #fffdf7;
+    color: #0a4f49;
+    padding: 5px 8px;
+    text-align: left;
+    cursor: pointer;
+    font: 700 11px/1.35 Avenir Next, Trebuchet MS, Verdana, sans-serif;
+  }
+  .hsm-scene-open:hover,
+  .hsm-scene-open:focus-visible {
+    border-color: #0f766e;
+    background: #e3f3ef;
+    outline: none;
+  }
+  .hsm-scene-open[aria-current="true"] {
+    border-color: #0f766e;
+    background: #dff4ee;
+  }
+  .hsm-scene-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    max-width: min(44vw, 520px);
+    overflow: hidden;
+  }
+  .hsm-scene-breadcrumb button,
+  .hsm-scene-breadcrumb span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .hsm-scene-breadcrumb button {
+    min-height: 30px;
+    border: 0;
+    background: transparent;
+    color: #0a4f49;
+    padding: 0 4px;
+    text-decoration: underline;
+  }
+  .hsm-scene-breadcrumb span[aria-current="page"] {
+    color: #1d2522;
+    font-weight: 800;
+  }
+  .hsm-scene-message {
+    color: #7c4a03;
+    font-weight: 700;
+  }
   .hsm-page-thumb-actions {
     display: flex;
     flex-wrap: wrap;
@@ -683,16 +748,20 @@ function buildVersionSaveInjection({ projectId, editRelativePath, pageNav = null
     pageNav.nextUrl ? '<a data-hsm-nav href="' + pageNav.nextUrl + '">下一页</a>' : ''
   ].filter(Boolean).join("");
   const pages = Array.isArray(pageNav.pages) ? pageNav.pages : [];
+  const scenes = Array.isArray(pageNav.scenes) ? pageNav.scenes : [];
   const pageListButtonHtml = pages.length
-    ? '<button data-hsm-page-list class="hsm-copy-button" type="button" aria-expanded="true">页面列表</button>'
+    ? '<button data-hsm-page-list class="hsm-copy-button" type="button" aria-expanded="true">课件画面</button>'
     : '';
   const initialVersion = pageNav.currentVersionId || "v001";
   const pageLabel = pageNav.pageLabel || "当前页";
+  const pageTitle = pageNav.pageTitle || pageLabel || "首页";
   bar.innerHTML = '<strong>' + escapeText(pageNav.taskName || "当前任务") + ' · ' + escapeText(pageLabel) + '</strong>'
     + '<button data-hsm-save type="button">保存版本</button>'
     + '<button data-hsm-copy class="hsm-copy-button" type="button">复制 HTML</button>'
     + pageListButtonHtml
+    + '<nav class="hsm-scene-breadcrumb" data-hsm-scene-breadcrumb aria-label="当前位置"></nav>'
     + '<span class="hsm-version-save-status">当前 ' + escapeText(initialVersion) + ' · 已保存</span>'
+    + '<span class="hsm-scene-message" data-hsm-scene-message role="status" aria-live="polite"></span>'
     + '<span class="hsm-version-save-nav">' + links + '</span>';
   document.documentElement.appendChild(bar);
 
@@ -700,6 +769,8 @@ function buildVersionSaveInjection({ projectId, editRelativePath, pageNav = null
   const copyButton = bar.querySelector("[data-hsm-copy]");
   const pageListButton = bar.querySelector("[data-hsm-page-list]");
   const status = bar.querySelector(".hsm-version-save-status");
+  const sceneBreadcrumb = bar.querySelector("[data-hsm-scene-breadcrumb]");
+  const sceneMessage = bar.querySelector("[data-hsm-scene-message]");
   const pageSidebar = pages.length ? buildPageSidebar(pages) : null;
   let baselineHtml = null;
   let likelyDirty = false;
@@ -724,7 +795,7 @@ function buildVersionSaveInjection({ projectId, editRelativePath, pageNav = null
     head.className = "hsm-page-sidebar-head";
     const title = document.createElement("span");
     title.className = "hsm-page-sidebar-title";
-    title.textContent = "页面列表";
+    title.textContent = "课件画面";
     const headActions = document.createElement("span");
     headActions.className = "hsm-page-sidebar-head-actions";
     const create = document.createElement("button");
@@ -769,9 +840,10 @@ function buildVersionSaveInjection({ projectId, editRelativePath, pageNav = null
       label.textContent = item.label || ("第 " + (index + 1) + " 页");
       const itemTitle = document.createElement("span");
       itemTitle.className = "hsm-page-thumb-title";
-      itemTitle.textContent = item.title || item.sourceRelativePath || item.editRelativePath || "课件页";
+      itemTitle.textContent = item.title || "课件页";
       copy.append(label, itemTitle);
       link.append(number, preview, copy);
+      const sceneTree = buildSceneTree(item);
       const actions = document.createElement("span");
       actions.className = "hsm-page-thumb-actions";
       actions.innerHTML = '<button type="button" data-hsm-page-drag-handle title="拖动排序">⋮⋮</button>'
@@ -780,7 +852,9 @@ function buildVersionSaveInjection({ projectId, editRelativePath, pageNav = null
         + '<button type="button" data-hsm-create-page="after">新增</button>'
         + '<button type="button" data-hsm-duplicate-page>复制</button>'
         + '<button type="button" data-hsm-delete-page' + (items.length <= 1 ? ' disabled' : '') + '>删除</button>';
-      li.append(link, actions);
+      li.append(link);
+      if (sceneTree) li.append(sceneTree);
+      li.append(actions);
       list.appendChild(li);
     });
 
@@ -789,12 +863,112 @@ function buildVersionSaveInjection({ projectId, editRelativePath, pageNav = null
     return aside;
   }
 
+  function buildSceneTree(page) {
+    if (!page.current) return null;
+    const pageScenes = scenes.filter((scene) => scene?.type === "modal" && scene.pageId === page.id);
+    if (!pageScenes.length) return null;
+    const children = new Map();
+    pageScenes.forEach((scene) => {
+      const parentId = String(scene.parentSceneId || "");
+      const group = children.get(parentId) || [];
+      group.push(scene);
+      children.set(parentId, group);
+    });
+    const root = document.createElement("ul");
+    root.className = "hsm-scene-tree";
+    root.setAttribute("data-hsm-scene-tree", "true");
+    root.setAttribute("aria-label", "当前页面里的画面");
+
+    const appendChildren = (parentId, list, visited = new Set()) => {
+      for (const scene of children.get(parentId) || []) {
+        if (!scene?.id || visited.has(scene.id)) continue;
+        const nextVisited = new Set(visited);
+        nextVisited.add(scene.id);
+        const item = document.createElement("li");
+        const open = document.createElement("button");
+        open.type = "button";
+        open.className = "hsm-scene-open";
+        open.setAttribute("data-hsm-open-scene", scene.id);
+        open.textContent = scene.title || "弹出内容";
+        item.append(open);
+        const childScenes = children.get(scene.id) || [];
+        if (childScenes.length) {
+          const nested = document.createElement("ul");
+          nested.className = "hsm-scene-children";
+          appendChildren(scene.id, nested, nextVisited);
+          item.append(nested);
+        }
+        list.append(item);
+      }
+    };
+    appendChildren("scene:page:" + page.id, root);
+    return root.childElementCount ? root : null;
+  }
+
+  function renderSceneBreadcrumb(path = []) {
+    if (!sceneBreadcrumb) return;
+    sceneBreadcrumb.replaceChildren();
+    const home = document.createElement(path.length ? "button" : "span");
+    home.textContent = pageTitle;
+    if (path.length) {
+      home.type = "button";
+      home.setAttribute("data-hsm-scene-depth", "0");
+    } else {
+      home.setAttribute("aria-current", "page");
+    }
+    sceneBreadcrumb.append(home);
+    path.forEach((scene, index) => {
+      const separator = document.createElement("span");
+      separator.textContent = "›";
+      separator.setAttribute("aria-hidden", "true");
+      const isCurrent = index === path.length - 1;
+      const crumb = document.createElement(isCurrent ? "span" : "button");
+      crumb.textContent = scene?.title || "弹出内容";
+      if (isCurrent) {
+        crumb.setAttribute("aria-current", "page");
+      } else {
+        crumb.type = "button";
+        crumb.setAttribute("data-hsm-scene-depth", String(index + 1));
+      }
+      sceneBreadcrumb.append(separator, crumb);
+    });
+  }
+
+  function showSceneMessage(message = "") {
+    if (sceneMessage) sceneMessage.textContent = message;
+  }
+
+  function enterScene(sceneId) {
+    showSceneMessage("");
+    const entered = window.__htmlSlideMenderBootstrap?.editor?.enterSceneById?.(sceneId);
+    if (!entered) {
+      showSceneMessage("这个画面暂时无法打开，可以从课件中的原按钮进入");
+    }
+  }
+
+  function exitScenesToDepth(depth) {
+    showSceneMessage("");
+    const exited = window.__htmlSlideMenderBootstrap?.editor?.exitScenesToDepth?.(depth);
+    if (!exited && Number(depth) > 0) {
+      showSceneMessage("这个画面暂时无法打开，可以从课件中的原按钮进入");
+    }
+  }
+
+  renderSceneBreadcrumb([]);
+  window.addEventListener("hsm-scene-navigation", (event) => {
+    const path = Array.isArray(event.detail?.path) ? event.detail.path : [];
+    renderSceneBreadcrumb(path);
+    pageSidebar?.querySelectorAll("[data-hsm-open-scene]").forEach((button) => {
+      button.setAttribute("aria-current", path.some((scene) => scene?.id === button.dataset.hsmOpenScene) ? "true" : "false");
+    });
+  });
+
   function setPageSidebarOpen(open) {
     if (!pageSidebar) return;
     pageSidebar.dataset.open = open ? "true" : "false";
     if (pageListButton) {
       pageListButton.setAttribute("aria-expanded", open ? "true" : "false");
-      pageListButton.textContent = open ? "隐藏页面" : "页面列表";
+      pageListButton.textContent = open ? "隐藏画面" : "课件画面";
     }
     try {
       localStorage.setItem("hsm-page-sidebar-open", open ? "true" : "false");
@@ -1102,6 +1276,11 @@ function buildVersionSaveInjection({ projectId, editRelativePath, pageNav = null
   pageSidebar?.addEventListener("click", (event) => {
     const action = event.target.closest("button");
     if (!action) return;
+    if (action.hasAttribute("data-hsm-open-scene")) {
+      event.preventDefault();
+      enterScene(action.dataset.hsmOpenScene || "");
+      return;
+    }
     const item = action.closest(".hsm-page-thumb-item");
     const pageId = item?.dataset.pageId || currentPageId();
     if (action.hasAttribute("data-hsm-create-page")) {
@@ -1123,6 +1302,12 @@ function buildVersionSaveInjection({ projectId, editRelativePath, pageNav = null
       event.preventDefault();
       moveSidebarPage(pageId, action.dataset.hsmMovePage, action);
     }
+  });
+  sceneBreadcrumb?.addEventListener("click", (event) => {
+    const action = event.target.closest("button[data-hsm-scene-depth]");
+    if (!action) return;
+    const depth = Number(action.dataset.hsmSceneDepth || 0);
+    window.requestAnimationFrame(() => exitScenesToDepth(depth));
   });
 
   let sidebarDraggedPageId = "";

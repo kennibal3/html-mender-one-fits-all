@@ -56,6 +56,37 @@ test("scene manifest creates stable page scenes", () => {
   ]);
 });
 
+test("page scenes prefer the lesson's visible heading over its technical file title", () => {
+  const manifest = buildProjectSceneManifest({
+    pages: [{
+      id: "p001",
+      label: "第 1 页",
+      title: "technical-file-name.html",
+      sourceRelativePath: "technical-file-name.html"
+    }],
+    htmlByPageId: {
+      p001: "<!doctype html><html><body><h1><span>首页</span></h1></body></html>"
+    }
+  });
+
+  assert.equal(manifest.scenes.find((scene) => scene.type === "page")?.title, "首页");
+});
+
+test("page scene titles ignore script strings and headings inside hidden content", () => {
+  const manifest = buildProjectSceneManifest({
+    pages: [{ id: "p001", label: "第 1 页", title: "index.html", sourceRelativePath: "index.html" }],
+    htmlByPageId: {
+      p001: `<!doctype html><html><body>
+        <script>const fakeHeading = "<h1>脚本里的标题</h1>";</script>
+        <section hidden><h1>隐藏内容标题</h1></section>
+        <main><h2>课堂首页</h2></main>
+      </body></html>`
+    }
+  });
+
+  assert.equal(manifest.scenes.find((scene) => scene.type === "page")?.title, "课堂首页");
+});
+
 test("scene manifest nests modal scenes by live target containment", () => {
   const interactions = [
     {
@@ -265,4 +296,23 @@ test("static scan does not confuse data attributes with modal visibility attribu
   });
 
   assert.deepEqual(manifest.scenes.map((scene) => scene.id), ["scene:page:p001"]);
+});
+
+test("unnamed interaction modals use a teacher-facing visible fallback title", () => {
+  const interaction = {
+    id: "open-untitled",
+    trigger: { event: "click", nodeId: "open-trigger" },
+    action: { type: "openModal", targetId: "untitled-modal" }
+  };
+  const html = `<!doctype html><html><body>
+    <button data-hsm-node-id="open-trigger">打开内容</button>
+    <section data-hsm-node-id="untitled-modal" hidden>内容</section>
+    ${interactionManifest([interaction])}
+  </body></html>`;
+  const manifest = buildProjectSceneManifest({
+    pages: [{ id: "p001", label: "第 1 页", sourceRelativePath: "index.html" }],
+    htmlByPageId: { p001: html }
+  });
+
+  assert.equal(manifest.scenes.find((scene) => scene.type === "modal")?.title, "弹出内容");
 });

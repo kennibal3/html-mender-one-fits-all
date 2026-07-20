@@ -486,7 +486,7 @@ test("injectVersionSaveButton adds project navigation links when page navigation
     assert.match(html, /data-action.*exit/);
     assert.match(html, /上一页/);
     assert.match(html, /下一页/);
-    assert.match(html, /页面列表/);
+    assert.match(html, /课件画面/);
     assert.match(html, /data-hsm-page-sidebar/);
     assert.match(html, /hsm-page-thumb/);
     assert.match(html, /data-hsm-page-preview/);
@@ -499,6 +499,66 @@ test("injectVersionSaveButton adds project navigation links when page navigation
     assert.match(html, /练习页/);
     assert.match(html, /project=project-123/);
     assert.match(html, /p3\.editable\.html/);
+  } finally {
+    await rm(temp, { recursive: true, force: true });
+  }
+});
+
+test("injectVersionSaveButton upgrades the page list with nested teacher-facing scenes", async () => {
+  const temp = await mkdtemp(join(tmpdir(), "html-mender-scene-tree-test-"));
+  try {
+    const htmlPath = join(temp, "index.editable.html");
+    await writeFile(htmlPath, "<!doctype html><html><body><h1>首页</h1></body></html>", "utf8");
+    await injectVersionSaveButton({
+      htmlPath,
+      projectId: "project-scenes",
+      editRelativePath: "index.editable.html",
+      pageNav: {
+        taskName: "语文课件",
+        pageLabel: "第 1 页",
+        pageTitle: "首页",
+        pages: [{
+          id: "p001",
+          label: "第 1 页",
+          title: "",
+          sourceRelativePath: "technical-file-name.html",
+          editUrl: "/index.editable.html",
+          current: true
+        }],
+        scenes: [
+          {
+            id: "scene:modal:p001:static:outer",
+            type: "modal",
+            pageId: "p001",
+            parentSceneId: "scene:page:p001",
+            title: "课程介绍",
+            entry: { type: "static", targetSelector: "#intro" }
+          },
+          {
+            id: "scene:modal:p001:static:inner",
+            type: "modal",
+            pageId: "p001",
+            parentSceneId: "scene:modal:p001:static:outer",
+            title: "任务详情",
+            entry: { type: "static", targetSelector: "#detail" }
+          }
+        ]
+      }
+    });
+
+    const html = await readFile(htmlPath, "utf8");
+    assert.match(html, /课件画面/);
+    assert.match(html, /data-hsm-scene-tree/);
+    assert.match(html, /data-hsm-open-scene/);
+    assert.match(html, /data-hsm-scene-breadcrumb/);
+    assert.match(html, /课程介绍/);
+    assert.match(html, /任务详情/);
+    assert.match(html, /这个画面暂时无法打开，可以从课件中的原按钮进入/);
+    assert.match(html, /item\.title \|\| "课件页"/);
+    assert.doesNotMatch(html, /item\.title \|\| item\.sourceRelativePath/);
+    const injectedScript = html.match(/<script data-hsm-version-save>([\s\S]*?)<\/script>/)?.[1];
+    assert.ok(injectedScript, "应生成课件画面导航脚本");
+    assert.doesNotThrow(() => new Script(injectedScript));
   } finally {
     await rm(temp, { recursive: true, force: true });
   }

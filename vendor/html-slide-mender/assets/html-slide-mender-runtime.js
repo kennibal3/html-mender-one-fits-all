@@ -234,7 +234,8 @@
     "video",
     "audio",
     "template",
-    `[id="${ROOT_ID}"]`
+    `[id="${ROOT_ID}"]`,
+    "[data-hsm-scene-shell]"
   ].join(",");
 
   const FONTS = [
@@ -2909,6 +2910,7 @@ async exit() {
       this.stopInteractionPreview?.({ silent: true, returnToEditor: false });
       this.stopSequencePreview?.({ silent: true });
       this.commitActiveText();
+      this.removeSceneNavigationHost?.();
       this.active = false;
       this.selectedId = null;
       this.selectedIds?.clear();
@@ -3522,6 +3524,13 @@ summaryText() {
 
     handleDocumentKeydown(event) {
       if (!this.active) {
+        return;
+      }
+
+      if (this.sceneNavigationStack?.length && event.key === "Escape") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        this.exitScenesToDepth?.(this.sceneNavigationStack.length - 1);
         return;
       }
 
@@ -8775,6 +8784,7 @@ async download(options = {}) {
 
 async serializeCleanHtml(_mode = "basic") {
       this.stopSequencePreview?.({ silent: true });
+      this.exitScenesToDepth?.(0);
       const sourceHtmlForExport = typeof skillSourceHtml === "string" ? skillSourceHtml : "";
       if (sourceHtmlForExport.trim()) {
         const html = this.serializeSourceBasedHtml(sourceHtmlForExport);
@@ -10360,6 +10370,261 @@ escapeDraftCss(value) {
   const SCHEMA_VERSION = "1.3";
 
   ns.mixins.interactions = {
+sceneNavigationScenes() {
+      return Array.isArray(window.__HTML_MENDER_PAGE_NAV__?.scenes)
+        ? window.__HTML_MENDER_PAGE_NAV__.scenes.filter((scene) => scene?.id && scene?.type === "modal")
+        : [];
+    },
+
+sceneNavigationPath(sceneId) {
+      const scenes = this.sceneNavigationScenes();
+      const sceneById = new Map(scenes.map((scene) => [String(scene.id), scene]));
+      const path = [];
+      const visited = new Set();
+      let current = sceneById.get(String(sceneId || ""));
+      while (current) {
+        if (visited.has(current.id)) {
+          return [];
+        }
+        visited.add(current.id);
+        path.push(current);
+        const parentId = String(current.parentSceneId || "");
+        if (!parentId || parentId.startsWith("scene:page:")) {
+          return path.reverse();
+        }
+        current = sceneById.get(parentId);
+        if (!current) {
+          return [];
+        }
+      }
+      return [];
+    },
+
+sceneNavigationTarget(scene) {
+      const entry = scene?.entry || {};
+      let candidates = [];
+      if (entry.targetNodeId) {
+        candidates = Array.from(document.querySelectorAll(`[${INTERACTION_NODE_ATTRIBUTE}]`))
+          .filter((element) => element.getAttribute(INTERACTION_NODE_ATTRIBUTE) === entry.targetNodeId);
+      } else if (entry.targetSelector) {
+        try {
+          candidates = Array.from(document.querySelectorAll(entry.targetSelector));
+        } catch (_error) {
+          return null;
+        }
+      }
+      const unique = Array.from(new Set(candidates));
+      return unique.length === 1 ? unique[0] : null;
+    },
+
+ensureSceneNavigationHost() {
+      if (this.sceneNavigationHost?.isConnected) {
+        return this.sceneNavigationHost;
+      }
+      const style = document.createElement("style");
+      style.setAttribute("data-hsm-editor", "scene-navigation-style");
+      style.textContent = `
+        [data-hsm-scene-modal] {
+          position: fixed;
+          inset: 0;
+          z-index: 2147483646;
+          display: grid;
+          place-items: center;
+          padding: 24px;
+          pointer-events: none;
+        }
+        [data-hsm-scene-modal][hidden] { display: none; }
+        [data-hsm-scene-backdrop] {
+          position: absolute;
+          inset: 0;
+          border: 0;
+          background: rgba(15, 23, 42, 0.58);
+          pointer-events: auto;
+        }
+        [data-hsm-scene-dialog] {
+          position: relative;
+          z-index: 1;
+          width: min(900px, 92vw);
+          max-height: 86vh;
+          overflow: auto;
+          padding: 28px;
+          border: 1px solid rgba(15, 118, 110, 0.32);
+          border-radius: 14px;
+          background: #fffdf7;
+          color: #1d2522;
+          box-shadow: 0 28px 80px rgba(15, 23, 42, 0.28);
+          pointer-events: auto;
+        }
+        [data-hsm-close-scene] {
+          position: absolute;
+          top: 10px;
+          right: 12px;
+          z-index: 2;
+          width: 36px;
+          height: 36px;
+          padding: 0;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          background: #fff;
+          color: #0f172a;
+          font: 700 24px/1 sans-serif;
+          cursor: pointer;
+        }
+        [data-hsm-scene-content] > img,
+        [data-hsm-scene-content] > video,
+        [data-hsm-scene-content] > iframe {
+          max-width: 100%;
+          height: auto;
+        }
+        @media (max-width: 720px) {
+          [data-hsm-scene-modal] { padding: 12px; }
+          [data-hsm-scene-dialog] { width: 96vw; max-height: 88vh; padding: 24px 18px; }
+        }
+      `;
+      const host = document.createElement("div");
+      host.setAttribute("data-hsm-scene-modal", "true");
+      host.setAttribute("data-hsm-scene-shell", "true");
+      host.hidden = true;
+      host.innerHTML = `
+        <button type="button" data-hsm-scene-backdrop data-hsm-editor="scene-backdrop" aria-label="返回上一层"></button>
+        <section data-hsm-scene-dialog data-hsm-scene-shell role="dialog" aria-modal="true" aria-label="弹出内容">
+          <button type="button" data-hsm-close-scene data-hsm-editor="scene-close" aria-label="返回上一层">×</button>
+          <div data-hsm-scene-content data-hsm-scene-shell></div>
+        </section>
+      `;
+      host.querySelector("[data-hsm-scene-backdrop]")?.addEventListener("click", () => {
+        this.exitScenesToDepth((this.sceneNavigationStack?.length || 1) - 1);
+      });
+      host.querySelector("[data-hsm-close-scene]")?.addEventListener("click", () => {
+        this.exitScenesToDepth((this.sceneNavigationStack?.length || 1) - 1);
+      });
+      document.head?.append(style);
+      document.body?.append(host);
+      this.sceneNavigationStyle = style;
+      this.sceneNavigationHost = host;
+      return host;
+    },
+
+sceneNavigationAttributes(element) {
+      return Object.fromEntries(["style", "hidden", "aria-hidden"].map((name) => [name, {
+        present: element.hasAttribute(name),
+        value: element.getAttribute(name) || ""
+      }]));
+    },
+
+restoreSceneNavigationAttributes(element, attributes) {
+      for (const [name, state] of Object.entries(attributes || {})) {
+        if (state.present) {
+          element.setAttribute(name, state.value);
+        } else {
+          element.removeAttribute(name);
+        }
+      }
+    },
+
+enterSceneState(scene, target) {
+      const host = this.ensureSceneNavigationHost();
+      const content = host?.querySelector("[data-hsm-scene-content]");
+      const dialog = host?.querySelector("[data-hsm-scene-dialog]");
+      if (!host || !content || !dialog || !target?.parentNode) {
+        return false;
+      }
+      const placeholder = document.createComment(`hsm-scene:${scene.id}`);
+      const state = {
+        scene,
+        target,
+        placeholder,
+        attributes: this.sceneNavigationAttributes(target)
+      };
+      target.replaceWith(placeholder);
+      target.removeAttribute("hidden");
+      target.removeAttribute("aria-hidden");
+      target.style.removeProperty("display");
+      target.style.removeProperty("visibility");
+      content.replaceChildren(target);
+      dialog.setAttribute("aria-label", scene.title || "弹出内容");
+      host.hidden = false;
+      this.sceneNavigationStack.push(state);
+      host.querySelector("[data-hsm-close-scene]")?.focus?.();
+      return true;
+    },
+
+enterSceneById(sceneId) {
+      if (this.interactionPreviewActive) {
+        return false;
+      }
+      this.sceneNavigationStack = this.sceneNavigationStack || [];
+      const path = this.sceneNavigationPath(sceneId);
+      if (!path.length) {
+        return false;
+      }
+      const targets = path.map((scene) => this.sceneNavigationTarget(scene));
+      if (targets.some((target) => !target) || new Set(targets).size !== targets.length) {
+        return false;
+      }
+      const currentScenes = this.sceneNavigationStack.map((state) => state.scene);
+      let sharedDepth = 0;
+      while (sharedDepth < currentScenes.length && sharedDepth < path.length && currentScenes[sharedDepth].id === path[sharedDepth].id) {
+        sharedDepth += 1;
+      }
+      this.exitScenesToDepth(sharedDepth, { silent: true });
+      for (let index = sharedDepth; index < path.length; index += 1) {
+        if (!this.enterSceneState(path[index], targets[index])) {
+          this.exitScenesToDepth(sharedDepth, { silent: true });
+          this.dispatchSceneNavigation();
+          return false;
+        }
+      }
+      this.dispatchSceneNavigation();
+      this.scheduleScan?.(0);
+      return true;
+    },
+
+exitScenesToDepth(depth = 0, options = {}) {
+      this.sceneNavigationStack = this.sceneNavigationStack || [];
+      const safeDepth = Math.max(0, Math.min(Number(depth) || 0, this.sceneNavigationStack.length));
+      const host = this.sceneNavigationHost;
+      const content = host?.querySelector("[data-hsm-scene-content]");
+      while (this.sceneNavigationStack.length > safeDepth) {
+        const state = this.sceneNavigationStack.pop();
+        if (state?.placeholder?.parentNode && state.target) {
+          state.placeholder.replaceWith(state.target);
+          this.restoreSceneNavigationAttributes(state.target, state.attributes);
+        }
+      }
+      const previous = this.sceneNavigationStack.at(-1);
+      if (previous?.target && content) {
+        content.replaceChildren(previous.target);
+        host?.querySelector("[data-hsm-scene-dialog]")?.setAttribute("aria-label", previous.scene.title || "弹出内容");
+      } else if (host) {
+        host.hidden = true;
+        content?.replaceChildren();
+      }
+      if (!options.silent) {
+        this.dispatchSceneNavigation();
+        this.scheduleScan?.(0);
+      }
+      return true;
+    },
+
+dispatchSceneNavigation() {
+      const path = (this.sceneNavigationStack || []).map((state) => ({
+        id: String(state.scene?.id || ""),
+        title: String(state.scene?.title || "弹出内容")
+      }));
+      window.dispatchEvent(new CustomEvent("hsm-scene-navigation", { detail: { path } }));
+    },
+
+removeSceneNavigationHost() {
+      this.exitScenesToDepth(0, { silent: true });
+      this.sceneNavigationHost?.remove();
+      this.sceneNavigationStyle?.remove();
+      this.sceneNavigationHost = null;
+      this.sceneNavigationStyle = null;
+      this.sceneNavigationStack = [];
+      this.dispatchSceneNavigation();
+    },
+
 loadInteractionManifest() {
       this.interactions = [];
       this.sequences = [];
@@ -12387,6 +12652,9 @@ refreshInteractionPanel() {
       this.interactionPreviewSequenceEntries = [];
       this.interactionPreviewSequenceIndex = 0;
       this.interactionPreviewModalClose = null;
+      this.sceneNavigationStack = [];
+      this.sceneNavigationHost = null;
+      this.sceneNavigationStyle = null;
       this.pendingInteractionTriggerNodeId = "";
       this.interactions = [];
       this.sequences = [];

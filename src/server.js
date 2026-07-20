@@ -769,18 +769,31 @@ async function createNextProjectVersion({ project, html, editRelativePath = "", 
     sourceRelativePath: page.sourceRelativePath,
     editRelativePath: page.editRelativePath,
     html,
-    pageNav: buildPageNav({ projectId: project.id, pages: project.pages || [], page, taskName: project.name }),
+    pageNav: buildPageNav({
+      projectId: project.id,
+      pages: project.pages || [],
+      page,
+      taskName: project.name,
+      sceneManifest: project.sceneManifest
+    }),
     lang: "zh-CN"
   });
   page.outputSize = commit.outputSize;
   page.lastSavedAt = publicVersion.createdAt;
   page.latestVersionId = publicVersion.id;
   page.versionCount = (page.versionCount || 0) + 1;
+  await refreshProjectSceneManifest(project);
   await injectVersionSaveButton({
     htmlPath: resolve(project.outputDir, ...page.editRelativePath.split("/")),
     projectId: project.id,
     editRelativePath: page.editRelativePath,
-    pageNav: buildPageNav({ projectId: project.id, pages: project.pages || [], page, taskName: project.name })
+    pageNav: buildPageNav({
+      projectId: project.id,
+      pages: project.pages || [],
+      page,
+      taskName: project.name,
+      sceneManifest: project.sceneManifest
+    })
   });
   await injectProjectPreviewToolbar({
     htmlPath: resolve(project.outputDir, ...page.sourceRelativePath.split("/")),
@@ -793,7 +806,6 @@ async function createNextProjectVersion({ project, html, editRelativePath = "", 
   project.lastSavedAt = publicVersion.createdAt;
   project.updatedAt = publicVersion.createdAt;
   project.versionCount = project.versions.length;
-  await refreshProjectSceneManifest(project);
   await writeProjectMeta(project);
   return publicVersion;
 }
@@ -888,7 +900,13 @@ async function rebuildManagedPage(project, page) {
     sourceRelativePath: page.sourceRelativePath,
     editRelativePath: page.editRelativePath,
     html,
-    pageNav: buildPageNav({ projectId: project.id, pages: project.pages, page, taskName: project.name }),
+    pageNav: buildPageNav({
+      projectId: project.id,
+      pages: project.pages,
+      page,
+      taskName: project.name,
+      sceneManifest: project.sceneManifest
+    }),
     lang: "zh-CN"
   });
   page.outputSize = commit.outputSize;
@@ -1098,22 +1116,52 @@ function publicDeletedProjectPage(project, page) {
   };
 }
 
-function buildPageNav({ projectId, pages, page, taskName = "" }) {
+function buildPageNav({ projectId, pages, page, taskName = "", sceneManifest = null }) {
   const pageIndex = pages.findIndex((item) => item.editRelativePath === page.editRelativePath);
   const previousPage = pageIndex > 0 ? pages[pageIndex - 1] : null;
   const nextPage = pageIndex >= 0 && pageIndex < pages.length - 1 ? pages[pageIndex + 1] : null;
+  const pageTitleById = new Map((sceneManifest?.scenes || [])
+    .filter((scene) => scene?.type === "page" && scene?.pageId)
+    .map((scene) => [String(scene.pageId), String(scene.title || "")]));
+  const teacherPageTitle = (item, index = 0) => {
+    const sceneTitle = pageTitleById.get(String(item?.id || ""));
+    if (sceneTitle) return sceneTitle;
+    const candidate = String(item?.title || "");
+    const looksTechnical = /\.html?$/i.test(candidate)
+      || candidate === String(item?.sourceRelativePath || "")
+      || candidate === String(item?.editRelativePath || "");
+    return looksTechnical ? String(item?.label || `第 ${index + 1} 页`) : (candidate || String(item?.label || "课件页"));
+  };
+  const scenes = (sceneManifest?.scenes || [])
+    .filter((scene) => scene?.type === "modal" && String(scene.pageId || "") === String(page.id || ""))
+    .map((scene) => ({
+      id: String(scene.id || ""),
+      type: "modal",
+      pageId: String(scene.pageId || ""),
+      parentSceneId: String(scene.parentSceneId || ""),
+      title: String(scene.title || "弹出内容"),
+      entry: {
+        type: String(scene.entry?.type || ""),
+        interactionId: String(scene.entry?.interactionId || ""),
+        triggerNodeId: String(scene.entry?.triggerNodeId || ""),
+        targetNodeId: String(scene.entry?.targetNodeId || ""),
+        targetSelector: String(scene.entry?.targetSelector || "")
+      }
+    }));
   return {
     projectUrl: `/?project=${encodeURIComponent(projectId)}`,
     taskName,
     pageLabel: page.label || "",
+    pageTitle: teacherPageTitle(page, Math.max(0, pageIndex)),
     currentVersionId: page.latestVersionId || "v001",
     previewUrl: `/projects/${projectId}/output/${encodeRelativeUrlPath(page.sourceRelativePath)}`,
     previousUrl: previousPage ? `/projects/${projectId}/output/${encodeRelativeUrlPath(previousPage.editRelativePath)}` : "",
     nextUrl: nextPage ? `/projects/${projectId}/output/${encodeRelativeUrlPath(nextPage.editRelativePath)}` : "",
+    scenes,
     pages: pages.map((item, index) => ({
       id: item.id || `p${String(index + 1).padStart(3, "0")}`,
       label: item.label || `第 ${index + 1} 页`,
-      title: item.title || item.sourceRelativePath || item.editRelativePath || "",
+      title: teacherPageTitle(item, index),
       sourceRelativePath: item.sourceRelativePath || "",
       editRelativePath: item.editRelativePath || "",
       editUrl: `/projects/${projectId}/output/${encodeRelativeUrlPath(item.editRelativePath)}`,
@@ -1252,7 +1300,13 @@ async function ensureProjectPages(project) {
       htmlPath: page.outputPath,
       projectId: project.id,
       editRelativePath: page.editRelativePath,
-      pageNav: buildPageNav({ projectId: project.id, pages: editable.pages, page, taskName: project.name })
+      pageNav: buildPageNav({
+        projectId: project.id,
+        pages: editable.pages,
+        page,
+        taskName: project.name,
+        sceneManifest: project.sceneManifest
+      })
     });
     await injectProjectPreviewToolbar({
       htmlPath: resolve(project.outputDir, ...page.sourceRelativePath.split("/")),
@@ -1279,7 +1333,13 @@ async function refreshProjectPageControls(project) {
         htmlPath: editablePath,
         projectId: project.id,
         editRelativePath: page.editRelativePath,
-        pageNav: buildPageNav({ projectId: project.id, pages: project.pages, page, taskName: project.name })
+        pageNav: buildPageNav({
+          projectId: project.id,
+          pages: project.pages,
+          page,
+          taskName: project.name,
+          sceneManifest: project.sceneManifest
+        })
       });
     }
     const previewPath = resolve(project.outputDir, ...page.sourceRelativePath.split("/"));

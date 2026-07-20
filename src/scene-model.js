@@ -295,13 +295,38 @@ function ancestorDistance(parents, nodeId, ancestorId) {
   return -1;
 }
 
-function pageScene(page) {
+function visiblePageTitle(html) {
+  const { source, elements } = htmlElementTree(html);
+  const isHidden = (elementIndex) => {
+    let currentIndex = elementIndex;
+    while (currentIndex != null) {
+      const element = elements[currentIndex];
+      if (!element) return false;
+      const style = attributeValue(element.tag, "style");
+      if (hasAttribute(element.tag, "hidden")
+        || attributeValue(element.tag, "aria-hidden").toLowerCase() === "true"
+        || /(?:display\s*:\s*none|visibility\s*:\s*hidden)/i.test(style)) {
+        return true;
+      }
+      currentIndex = element.parentIndex;
+    }
+    return false;
+  };
+  for (const [elementIndex, element] of elements.entries()) {
+    if (!/^h[1-4]$/.test(element.name) || isHidden(elementIndex)) continue;
+    const title = visibleText(source.slice(element.contentStart, element.contentEnd));
+    if (title) return title;
+  }
+  return "";
+}
+
+function pageScene(page, html) {
   return {
     id: `scene:page:${page.id}`,
     type: "page",
     pageId: String(page.id),
     parentSceneId: null,
-    title: String(page.title || page.label || page.sourceRelativePath || page.id),
+    title: String(visiblePageTitle(html) || page.title || page.label || "课件页"),
     sourceRelativePath: String(page.sourceRelativePath || ""),
     entry: { type: "page" }
   };
@@ -340,7 +365,7 @@ function modalScenes(page, html) {
       parentSceneId: parentInteraction
         ? sceneIdByInteractionId.get(String(parentInteraction.id))
         : pageSceneId,
-      title: String(interaction.name || "弹窗场景"),
+      title: String(interaction.name || "弹出内容"),
       sourceRelativePath: String(page.sourceRelativePath || ""),
       entry: {
         type: "interaction",
@@ -374,7 +399,7 @@ export function buildProjectSceneManifest({ pages = [], htmlByPageId = {} } = {}
     }
     const html = htmlByPageId[page.id] || "";
     const interactionScenes = modalScenes(page, html);
-    scenes.push(pageScene(page));
+    scenes.push(pageScene(page, html));
     scenes.push(...interactionScenes);
     scenes.push(...staticModalScenes(page, html, interactionScenes));
   }
