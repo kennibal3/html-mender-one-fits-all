@@ -1436,6 +1436,10 @@
       gap: 12px;
       min-height: 50px;
       padding: 7px 8px 7px 14px;
+      pointer-events: none;
+    }
+
+    .interaction-preview-toolbar [data-action="stop-interaction-preview"] {
       pointer-events: auto;
     }
 
@@ -1472,6 +1476,10 @@
     .shell[data-interaction-preview="true"] .collapse,
     .shell[data-interaction-preview="true"] .toolbar-body {
       display: none !important;
+    }
+
+    .shell[data-interaction-preview="true"] .toolbar {
+      pointer-events: none;
     }
 
     .shell[data-interaction-preview="true"] .interaction-preview-toolbar {

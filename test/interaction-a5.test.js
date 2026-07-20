@@ -205,8 +205,29 @@ test("A5 逐步讲解完整生命周期", async (t) => {
       await step("#step-3").waitFor({ state: "hidden" });
       await editorPage.locator("#native-control").click();
       await step("#step-1").waitFor({ state: "hidden" });
+      const previewPointerBehavior = await editorPage.evaluate(() => {
+        const editor = window.__htmlSlideMenderBootstrap.editor;
+        const toolbar = editor.shadow.querySelector('[data-role="interaction-preview-toolbar"]');
+        const status = editor.shadow.querySelector(".interaction-preview-status");
+        const backButton = editor.shadow.querySelector('[data-action="stop-interaction-preview"]');
+        const advanceArea = document.querySelector("#advance-area");
+        const statusRect = status.getBoundingClientRect();
+        Object.assign(advanceArea.style, {
+          position: "fixed",
+          left: `${statusRect.left}px`,
+          top: `${statusRect.top}px`,
+          width: `${statusRect.width}px`,
+          height: `${statusRect.height}px`,
+          zIndex: "2147483646"
+        });
+        return {
+          toolbar: getComputedStyle(toolbar).pointerEvents,
+          backButton: getComputedStyle(backButton).pointerEvents
+        };
+      });
       await editorPage.locator("#advance-area").click();
       await step("#step-1").waitFor({ state: "visible" });
+      assert.deepEqual(previewPointerBehavior, { toolbar: "none", backButton: "auto" });
       await step("#step-2").waitFor({ state: "hidden" });
       await editorPage.locator("body").press("Space");
       await step("#step-2").waitFor({ state: "visible" });
@@ -218,6 +239,7 @@ test("A5 逐步讲解完整生命周期", async (t) => {
         const editor = window.__htmlSlideMenderBootstrap.editor;
         const progress = editor.toastEl?.textContent || "";
         editor.stopInteractionPreview({ silent: true });
+        document.querySelector("#advance-area").removeAttribute("style");
         return {
           progress,
           previewActive: editor.shell.dataset.interactionPreview,
