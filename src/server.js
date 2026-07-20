@@ -6,6 +6,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { dirname, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { startHttpServer } from "./server-runtime.js";
+import { buildProjectSceneManifest } from "./scene-model.js";
 import { writeJsonAtomic } from "./task-store.js";
 import {
   commitProjectPageEdit,
@@ -34,7 +35,7 @@ const uploadDir = resolve(dataDir, "uploads");
 const outputDir = resolve(dataDir, "outputs");
 const projectsDir = resolve(dataDir, "projects");
 const archiveDir = resolve(dataDir, "archives");
-const EDITOR_RUNTIME_VERSION = 26;
+const EDITOR_RUNTIME_VERSION = 27;
 
 for (const dir of [uploadDir, outputDir, projectsDir, archiveDir]) {
   mkdirSync(dir, { recursive: true });
@@ -188,11 +189,14 @@ app.delete("/api/projects/:id/pages/:pageId", async (req, res, next) => {
     const references = await findPageJumpReferences(project, req.params.pageId);
     if (references.length && req.query.force !== "true") {
       res.status(409).json({
-        error: `这个页面被 ${references.length} 个跳转互动引用，删除后这些跳转将暂时失效。`,
+        error: `这个页面被 ${references.length} 个跳转互动引用，强制删除会停用这些跳转。`,
         references
       });
       return;
     }
+    const disabledPageJumps = references.length
+      ? await disablePageJumpReferences(project, req.params.pageId)
+      : [];
     const [page] = project.pages.splice(pageIndex, 1);
     const deletedPage = {
       ...page,
@@ -203,7 +207,11 @@ app.delete("/api/projects/:id/pages/:pageId", async (req, res, next) => {
     project.deletedPages = [...(project.deletedPages || []), deletedPage];
     await removeManagedPageOutputs(project, page);
     await finalizePageManagementChange(project);
-    res.json({ deletedPage: publicDeletedProjectPage(project, deletedPage), project: publicProject(project) });
+    res.json({
+      deletedPage: publicDeletedProjectPage(project, deletedPage),
+      disabledPageJumps,
+      project: publicProject(project)
+    });
   } catch (error) {
     next(error);
   }
@@ -616,6 +624,7 @@ async function processHtmlTask({ files, taskName }) {
     versionCount: versions.length,
     editorRuntimeVersion: EDITOR_RUNTIME_VERSION
   };
+  await refreshProjectSceneManifest(project);
   await refreshProjectPageControls(project);
   return { project, rejected };
 }
@@ -719,6 +728,7 @@ async function processProjectUpload(file, taskName) {
       versionCount: versions.length,
       editorRuntimeVersion: EDITOR_RUNTIME_VERSION
     };
+    await refreshProjectSceneManifest(project);
     await refreshProjectPageControls(project);
     return project;
   } catch (error) {
@@ -759,18 +769,31 @@ async function createNextProjectVersion({ project, html, editRelativePath = "", 
     sourceRelativePath: page.sourceRelativePath,
     editRelativePath: page.editRelativePath,
     html,
-    pageNav: buildPageNav({ projectId: project.id, pages: project.pages || [], page, taskName: project.name }),
+    pageNav: buildPageNav({
+      projectId: project.id,
+      pages: project.pages || [],
+      page,
+      taskName: project.name,
+      sceneManifest: project.sceneManifest
+    }),
     lang: "zh-CN"
   });
   page.outputSize = commit.outputSize;
   page.lastSavedAt = publicVersion.createdAt;
   page.latestVersionId = publicVersion.id;
   page.versionCount = (page.versionCount || 0) + 1;
+  await refreshProjectSceneManifest(project);
   await injectVersionSaveButton({
     htmlPath: resolve(project.outputDir, ...page.editRelativePath.split("/")),
     projectId: project.id,
     editRelativePath: page.editRelativePath,
-    pageNav: buildPageNav({ projectId: project.id, pages: project.pages || [], page, taskName: project.name })
+    pageNav: buildPageNav({
+      projectId: project.id,
+      pages: project.pages || [],
+      page,
+      taskName: project.name,
+      sceneManifest: project.sceneManifest
+    })
   });
   await injectProjectPreviewToolbar({
     htmlPath: resolve(project.outputDir, ...page.sourceRelativePath.split("/")),
@@ -877,7 +900,13 @@ async function rebuildManagedPage(project, page) {
     sourceRelativePath: page.sourceRelativePath,
     editRelativePath: page.editRelativePath,
     html,
-    pageNav: buildPageNav({ projectId: project.id, pages: project.pages, page, taskName: project.name }),
+    pageNav: buildPageNav({
+      projectId: project.id,
+      pages: project.pages,
+      page,
+      taskName: project.name,
+      sceneManifest: project.sceneManifest
+    }),
     lang: "zh-CN"
   });
   page.outputSize = commit.outputSize;
@@ -918,6 +947,53 @@ async function findPageJumpReferences(project, targetPageId) {
   return references;
 }
 
+function removePageJumpReferencesFromHtml(html, targetPageId) {
+  let disabledInteractions = [];
+  const manifestPattern = /(<script\b[^>]*data-hsm-interaction-manifest[^>]*>)([\s\S]*?)(<\/script\s*>)/gi;
+  const updatedHtml = String(html || "").replace(manifestPattern, (match, opening, source, closing) => {
+    try {
+      const manifest = JSON.parse(source || "{}");
+      const interactions = Array.isArray(manifest.interactions) ? manifest.interactions : [];
+      const retained = interactions.filter((interaction) => {
+        const targetsDeletedPage = interaction?.action?.type === "goToPage" &&
+          String(interaction.action.pageId || "") === targetPageId;
+        if (targetsDeletedPage) disabledInteractions.push(interaction);
+        return !targetsDeletedPage;
+      });
+      if (retained.length === interactions.length) return match;
+      const serialized = JSON.stringify({ ...manifest, interactions: retained }).replace(/</g, "\\u003c");
+      return `${opening}${serialized}${closing}`;
+    } catch (_error) {
+      return match;
+    }
+  });
+  return { html: updatedHtml, disabledInteractions };
+}
+
+async function disablePageJumpReferences(project, targetPageId) {
+  const disabledPageJumps = [];
+  for (const page of project.pages || []) {
+    if (page.id === targetPageId) continue;
+    const sourcePath = resolve(project.sourceDir, ...page.sourceRelativePath.split("/"));
+    const source = await readFile(sourcePath, "utf8");
+    const result = removePageJumpReferencesFromHtml(source, targetPageId);
+    if (!result.disabledInteractions.length) continue;
+    await createNextProjectVersion({
+      project,
+      html: result.html,
+      editRelativePath: page.editRelativePath,
+      note: `目标页删除，停用 ${result.disabledInteractions.length} 个页面跳转`
+    });
+    disabledPageJumps.push(...result.disabledInteractions.map((interaction) => ({
+      pageId: page.id,
+      pageLabel: page.label || "",
+      interactionId: String(interaction.id || ""),
+      interactionName: String(interaction.name || "页面跳转")
+    })));
+  }
+  return disabledPageJumps;
+}
+
 async function finalizePageManagementChange(project) {
   renumberProjectPages(project);
   const firstPage = project.pages[0];
@@ -929,6 +1005,7 @@ async function finalizePageManagementChange(project) {
   project.outputSize = project.pages.reduce((sum, page) => sum + (page.outputSize || 0), 0);
   project.mediaCounts = { ...(project.mediaCounts || {}), html: project.pages.length };
   project.updatedAt = new Date().toISOString();
+  await refreshProjectSceneManifest(project);
   await refreshProjectPageControls(project);
   await writeProjectMeta(project);
 }
@@ -1039,22 +1116,52 @@ function publicDeletedProjectPage(project, page) {
   };
 }
 
-function buildPageNav({ projectId, pages, page, taskName = "" }) {
+function buildPageNav({ projectId, pages, page, taskName = "", sceneManifest = null }) {
   const pageIndex = pages.findIndex((item) => item.editRelativePath === page.editRelativePath);
   const previousPage = pageIndex > 0 ? pages[pageIndex - 1] : null;
   const nextPage = pageIndex >= 0 && pageIndex < pages.length - 1 ? pages[pageIndex + 1] : null;
+  const pageTitleById = new Map((sceneManifest?.scenes || [])
+    .filter((scene) => scene?.type === "page" && scene?.pageId)
+    .map((scene) => [String(scene.pageId), String(scene.title || "")]));
+  const teacherPageTitle = (item, index = 0) => {
+    const sceneTitle = pageTitleById.get(String(item?.id || ""));
+    if (sceneTitle) return sceneTitle;
+    const candidate = String(item?.title || "");
+    const looksTechnical = /\.html?$/i.test(candidate)
+      || candidate === String(item?.sourceRelativePath || "")
+      || candidate === String(item?.editRelativePath || "");
+    return looksTechnical ? String(item?.label || `第 ${index + 1} 页`) : (candidate || String(item?.label || "课件页"));
+  };
+  const scenes = (sceneManifest?.scenes || [])
+    .filter((scene) => scene?.type === "modal" && String(scene.pageId || "") === String(page.id || ""))
+    .map((scene) => ({
+      id: String(scene.id || ""),
+      type: "modal",
+      pageId: String(scene.pageId || ""),
+      parentSceneId: String(scene.parentSceneId || ""),
+      title: String(scene.title || "弹出内容"),
+      entry: {
+        type: String(scene.entry?.type || ""),
+        interactionId: String(scene.entry?.interactionId || ""),
+        triggerNodeId: String(scene.entry?.triggerNodeId || ""),
+        targetNodeId: String(scene.entry?.targetNodeId || ""),
+        targetSelector: String(scene.entry?.targetSelector || "")
+      }
+    }));
   return {
     projectUrl: `/?project=${encodeURIComponent(projectId)}`,
     taskName,
     pageLabel: page.label || "",
+    pageTitle: teacherPageTitle(page, Math.max(0, pageIndex)),
     currentVersionId: page.latestVersionId || "v001",
     previewUrl: `/projects/${projectId}/output/${encodeRelativeUrlPath(page.sourceRelativePath)}`,
     previousUrl: previousPage ? `/projects/${projectId}/output/${encodeRelativeUrlPath(previousPage.editRelativePath)}` : "",
     nextUrl: nextPage ? `/projects/${projectId}/output/${encodeRelativeUrlPath(nextPage.editRelativePath)}` : "",
+    scenes,
     pages: pages.map((item, index) => ({
       id: item.id || `p${String(index + 1).padStart(3, "0")}`,
       label: item.label || `第 ${index + 1} 页`,
-      title: item.title || item.sourceRelativePath || item.editRelativePath || "",
+      title: teacherPageTitle(item, index),
       sourceRelativePath: item.sourceRelativePath || "",
       editRelativePath: item.editRelativePath || "",
       editUrl: `/projects/${projectId}/output/${encodeRelativeUrlPath(item.editRelativePath)}`,
@@ -1119,6 +1226,7 @@ async function hydrateProjectsFromDisk() {
       if (project?.id && project?.status) {
         let upgraded = ensureProjectIdentity(project);
         await ensureProjectPages(project);
+        upgraded = await refreshProjectSceneManifest(project) || upgraded;
         upgraded = await upgradeProjectEditorRuntime(project) || upgraded;
         await refreshProjectPageControls(project);
         projects.set(project.id, project);
@@ -1192,7 +1300,13 @@ async function ensureProjectPages(project) {
       htmlPath: page.outputPath,
       projectId: project.id,
       editRelativePath: page.editRelativePath,
-      pageNav: buildPageNav({ projectId: project.id, pages: editable.pages, page, taskName: project.name })
+      pageNav: buildPageNav({
+        projectId: project.id,
+        pages: editable.pages,
+        page,
+        taskName: project.name,
+        sceneManifest: project.sceneManifest
+      })
     });
     await injectProjectPreviewToolbar({
       htmlPath: resolve(project.outputDir, ...page.sourceRelativePath.split("/")),
@@ -1219,7 +1333,13 @@ async function refreshProjectPageControls(project) {
         htmlPath: editablePath,
         projectId: project.id,
         editRelativePath: page.editRelativePath,
-        pageNav: buildPageNav({ projectId: project.id, pages: project.pages, page, taskName: project.name })
+        pageNav: buildPageNav({
+          projectId: project.id,
+          pages: project.pages,
+          page,
+          taskName: project.name,
+          sceneManifest: project.sceneManifest
+        })
       });
     }
     const previewPath = resolve(project.outputDir, ...page.sourceRelativePath.split("/"));
@@ -1248,6 +1368,24 @@ async function listHtmlFiles(directoryPath, baseDir = directoryPath) {
     }
   }
   return files;
+}
+
+async function refreshProjectSceneManifest(project) {
+  const htmlByPageId = {};
+  for (const page of project.pages || []) {
+    if (!page?.id || !page.sourceRelativePath || !project.sourceDir) {
+      continue;
+    }
+    const sourcePath = resolve(project.sourceDir, ...page.sourceRelativePath.split("/"));
+    htmlByPageId[page.id] = await readFile(sourcePath, "utf8").catch(() => "");
+  }
+  const sceneManifest = buildProjectSceneManifest({
+    pages: project.pages || [],
+    htmlByPageId
+  });
+  const changed = JSON.stringify(project.sceneManifest || null) !== JSON.stringify(sceneManifest);
+  project.sceneManifest = sceneManifest;
+  return changed;
 }
 
 function sanitizeProjectPage(page) {

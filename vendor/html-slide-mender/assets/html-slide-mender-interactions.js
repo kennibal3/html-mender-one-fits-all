@@ -5,7 +5,7 @@
   const HIDDEN_ATTRIBUTE = "data-hsm-interaction-hidden";
   const DISPLAY_ATTRIBUTE = "data-hsm-interaction-display";
   const SCHEMA_VERSION = "1.3";
-  let activeModal = null;
+  const modalStack = [];
   const sequenceStates = new Map();
   let sequenceListenersInstalled = false;
 
@@ -53,17 +53,46 @@
         element.style.removeProperty("display");
       }
       element.removeAttribute(HIDDEN_ATTRIBUTE);
+      element.removeAttribute("hidden");
       element.removeAttribute("aria-hidden");
     } else {
       element.style.display = "none";
       element.setAttribute(HIDDEN_ATTRIBUTE, "true");
+      element.setAttribute("hidden", "");
       element.setAttribute("aria-hidden", "true");
     }
     return visible;
   }
 
+  function emitSceneEvent(type, modal, depth) {
+    window.dispatchEvent(new CustomEvent("hsm-scene-event", {
+      detail: {
+        schemaVersion: SCHEMA_VERSION,
+        type,
+        timestamp: new Date().toISOString(),
+        sceneId: modal.sceneId,
+        interactionId: modal.interactionId,
+        depth,
+        preview: false
+      }
+    }));
+  }
+
   function toggleVisibility(element) {
-    return setVisible(element, element?.hasAttribute(HIDDEN_ATTRIBUTE));
+    return setVisible(element, element?.hasAttribute(HIDDEN_ATTRIBUTE) || element?.hasAttribute("hidden"));
+  }
+
+  function applyVisibilityAction(element, actionType) {
+    if (actionType === "showVisibility") {
+      return setVisible(element, true);
+    }
+    if (actionType === "hideVisibility") {
+      return setVisible(element, false);
+    }
+    if (actionType === "toggleVisibility") {
+      return toggleVisibility(element);
+    }
+    return null;
   }
 
   function prefersReducedMotion() {
@@ -140,13 +169,25 @@
   }
 
   function closeInteractionModal() {
+    const activeModal = modalStack.at(-1);
     if (!activeModal) {
       return false;
     }
-    const { root, trigger, onKeydown } = activeModal;
+    const { root, trigger, onKeydown, target, placeholder, targetState } = activeModal;
     document.removeEventListener("keydown", onKeydown, true);
+    if (placeholder?.parentNode && target) {
+      placeholder.replaceWith(target);
+      for (const [name, state] of Object.entries(targetState.attributes)) {
+        if (state.present) {
+          target.setAttribute(name, state.value);
+        } else {
+          target.removeAttribute(name);
+        }
+      }
+    }
     root.remove();
-    activeModal = null;
+    emitSceneEvent("scene.exited", activeModal, modalStack.length);
+    modalStack.pop();
     trigger?.focus?.();
     return true;
   }
@@ -156,14 +197,32 @@
     if (!target) {
       return false;
     }
-    closeInteractionModal();
+    const closeOptions = {
+      button: true,
+      backdrop: interaction.action?.close?.backdrop !== false,
+      escape: interaction.action?.close?.escape !== false
+    };
+    const placeholder = document.createComment(`hsm-modal:${interaction.id || "modal"}`);
+    const targetState = {
+      attributes: Object.fromEntries([
+        "style",
+        "hidden",
+        "aria-hidden",
+        HIDDEN_ATTRIBUTE,
+        DISPLAY_ATTRIBUTE
+      ].map((name) => [name, {
+        present: target.hasAttribute(name),
+        value: target.getAttribute(name) || ""
+      }]))
+    };
+    target.replaceWith(placeholder);
 
     const root = document.createElement("div");
     root.setAttribute("data-hsm-interaction-modal", interaction.id || "modal");
     Object.assign(root.style, {
       position: "fixed",
       inset: "0",
-      zIndex: "2147483000",
+      zIndex: String(2147483000 + (modalStack.length * 2)),
       display: "grid",
       placeItems: "center",
       padding: "24px",
@@ -206,18 +265,15 @@
       cursor: "pointer"
     });
 
-    const content = target.cloneNode(true);
-    content.removeAttribute(NODE_ATTRIBUTE);
-    content.querySelectorAll?.(`[${NODE_ATTRIBUTE}]`).forEach((node) => node.removeAttribute(NODE_ATTRIBUTE));
+    const content = target;
     setVisible(content, true);
     content.style.maxWidth = "100%";
-    content.querySelectorAll?.("img,video,iframe").forEach((media) => {
-      media.style.maxWidth = "100%";
-      media.style.height = "auto";
-    });
 
     const onKeydown = (event) => {
-      if (event.key === "Escape") {
+      if (modalStack.at(-1)?.root !== root) {
+        return;
+      }
+      if (event.key === "Escape" && closeOptions.escape) {
         event.preventDefault();
         closeInteractionModal();
         return;
@@ -244,7 +300,7 @@
 
     close.addEventListener("click", closeInteractionModal);
     root.addEventListener("click", (event) => {
-      if (event.target === root) {
+      if (event.target === root && closeOptions.backdrop) {
         closeInteractionModal();
       }
     });
@@ -252,7 +308,18 @@
     root.appendChild(dialog);
     document.documentElement.appendChild(root);
     document.addEventListener("keydown", onKeydown, true);
-    activeModal = { root, trigger, onKeydown };
+    const modalState = {
+      root,
+      trigger,
+      onKeydown,
+      target,
+      placeholder,
+      targetState,
+      interactionId: String(interaction.id || ""),
+      sceneId: String(interaction.sceneId || interaction.action?.sceneId || interaction.id || "")
+    };
+    modalStack.push(modalState);
+    emitSceneEvent("scene.entered", modalState, modalStack.length);
     close.focus();
     playInteractionEffect(dialog, interaction.effect);
     return true;
@@ -369,7 +436,7 @@
     if (!event || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) {
       return false;
     }
-    if (activeModal || document.querySelector('[data-hsm-editor="skill-runtime"]')) {
+    if (modalStack.length || document.querySelector('[data-hsm-editor="skill-runtime"]')) {
       return false;
     }
     if (isNativeControl(event.target)) {
@@ -426,10 +493,10 @@
       return opened;
     }
     const target = findNode(interaction.action?.targetId);
-    if (!target || actionType !== "toggleVisibility") {
+    const visible = target ? applyVisibilityAction(target, actionType) : null;
+    if (visible === null) {
       return false;
     }
-    const visible = toggleVisibility(target);
     if (visible) {
       playInteractionEffect(target, interaction.effect);
     }
@@ -441,8 +508,11 @@
     const trigger = findNode(interaction.trigger?.nodeId);
     const actionType = interaction.action?.type;
     const target = findNode(interaction.action?.targetId);
-    const requiresTarget = actionType === "toggleVisibility" || actionType === "openModal";
+    const requiresTarget = ["showVisibility", "hideVisibility", "toggleVisibility", "openModal"].includes(actionType);
     if (!trigger || (requiresTarget && !target) || interaction.trigger?.event !== "click") {
+      return false;
+    }
+    if (actionType === "openUrl" && !safeExternalDestination(interaction.action?.href)) {
       return false;
     }
 
@@ -510,6 +580,7 @@
     start,
     setVisible,
     toggleVisibility,
+    applyVisibilityAction,
     navigateToPage,
     safeExternalDestination,
     openExternalUrl,

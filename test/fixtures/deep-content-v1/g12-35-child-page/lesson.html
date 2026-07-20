@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>图文任务</title>
+</head>
+<body>
+  <h1>图文任务</h1>
+  <p id="task-state">等待完成</p>
+  <button id="finish-task" type="button">完成任务</button>
+  <a href="index.html">返回首页</a>
+  <script>
+    document.querySelector('#finish-task').addEventListener('click', () => {
+      document.querySelector('#task-state').textContent = '任务已完成';
+    });
+  </script>
+</body>
+</html>

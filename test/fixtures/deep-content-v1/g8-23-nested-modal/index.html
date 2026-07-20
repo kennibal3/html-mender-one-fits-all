@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>课程介绍弹出画面</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    [hidden] { display: none; }
+    .panel { margin: 1rem 0; padding: 1rem; border: 2px solid #1d4ed8; background: white; }
+  </style>
+</head>
+<body data-sample-id="g8-23-nested-modal">
+  <h1>首页</h1>
+  <button id="open-intro" type="button">打开课程介绍</button>
+  <section id="intro" class="panel" aria-labelledby="intro-title" hidden>
+    <h2 id="intro-title">课程介绍</h2>
+    <button id="toggle-tip" type="button">显示学习提示</button>
+    <p id="learning-tip" hidden>先观察，再说明判断理由。</p>
+    <button id="open-detail" type="button">查看任务详情</button>
+    <section id="detail" class="panel" aria-labelledby="detail-title" hidden>
+      <h3 id="detail-title">任务详情</h3>
+      <p id="detail-state">尚未确认</p>
+      <button id="confirm-detail" type="button">确认任务</button>
+      <button id="close-detail" type="button">返回课程介绍</button>
+    </section>
+    <button id="close-intro" type="button">返回首页</button>
+  </section>
+  <script>
+    const intro = document.querySelector('#intro');
+    const detail = document.querySelector('#detail');
+    document.querySelector('#open-intro').addEventListener('click', () => { intro.hidden = false; });
+    document.querySelector('#close-intro').addEventListener('click', () => { intro.hidden = true; });
+    document.querySelector('#toggle-tip').addEventListener('click', () => {
+      const tip = document.querySelector('#learning-tip');
+      tip.hidden = !tip.hidden;
+    });
+    document.querySelector('#open-detail').addEventListener('click', () => { detail.hidden = false; });
+    document.querySelector('#close-detail').addEventListener('click', () => { detail.hidden = true; });
+    document.querySelector('#confirm-detail').addEventListener('click', () => {
+      document.querySelector('#detail-state').textContent = '已确认';
+    });
+  </script>
+</body>
+</html>

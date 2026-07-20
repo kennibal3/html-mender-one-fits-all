@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>预测实验</title>
+  <style>
+    body { font-family: sans-serif; min-height: 140vh; margin: 2rem; }
+    [hidden] { display: none; }
+    .experiment { padding: 1rem; border: 2px solid #7c3aed; border-radius: 1rem; background: white; }
+  </style>
+</head>
+<body data-sample-id="g3-38-stateful-modal">
+  <h1>预测游戏</h1>
+  <button id="open-experiment" type="button">打开预测实验</button>
+  <section id="experiment" class="experiment" aria-labelledby="experiment-title" hidden>
+    <h2 id="experiment-title">春游预测实验</h2>
+    <label>判断门槛 <input id="threshold" type="range" min="0" max="100" value="60"></label>
+    <output id="threshold-value">60</output>
+    <button id="close-experiment" type="button">完成并返回</button>
+  </section>
+  <script>
+    const experiment = document.querySelector('#experiment');
+    const opener = document.querySelector('#open-experiment');
+    const threshold = document.querySelector('#threshold');
+    opener.addEventListener('click', () => { experiment.hidden = false; threshold.focus(); });
+    threshold.addEventListener('input', () => { document.querySelector('#threshold-value').value = threshold.value; });
+    document.querySelector('#close-experiment').addEventListener('click', () => { experiment.hidden = true; opener.focus(); });
+  </script>
+</body>
+</html>

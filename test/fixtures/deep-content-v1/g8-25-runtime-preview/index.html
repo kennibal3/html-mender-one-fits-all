@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>代码预览外层管理</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    textarea, iframe { display: block; width: min(42rem, 95%); margin-top: 1rem; }
+    iframe { height: 10rem; border: 2px solid #64748b; }
+  </style>
+</head>
+<body data-sample-id="g8-25-runtime-preview">
+  <h1>代码预览</h1>
+  <p>编辑器只管理预览框外层，不进入预览内容。</p>
+  <textarea id="preview-source">&lt;button type="button"&gt;示例按钮&lt;/button&gt;</textarea>
+  <button id="refresh-preview" type="button">刷新预览</button>
+  <iframe id="preview" title="运行时生成的预览"></iframe>
+  <script>
+    document.querySelector('#refresh-preview').addEventListener('click', () => {
+      const source = document.querySelector('#preview-source').value;
+      document.querySelector('#preview').srcdoc = `<!doctype html><meta charset="utf-8"><main>${source}</main>`;
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "description": "HTML Mender 深层内容编辑第一版的脱敏最小复现样本。原课件只读，不进入仓库。",
+  "samples": [
+    {
+      "id": "g1-08-low-age-modal",
+      "sourceRef": "G1-08",
+      "title": "AI 小侦探弹出画面",
+      "entry": "g1-08-low-age-modal/index.html",
+      "redacted": true,
+      "coverage": ["modal", "original-script-preservation", "visible-title"],
+      "outOfScope": ["canvas-internal-editing"]
+    },
+    {
+      "id": "g2-23-dynamic-region",
+      "sourceRef": "G2-23",
+      "title": "智能教室动态任务区",
+      "entry": "g2-23-dynamic-region/index.html",
+      "redacted": true,
+      "coverage": ["dynamic-dom", "original-script-preservation", "manual-scene-candidate"],
+      "outOfScope": ["b3-drag-configuration"]
+    },
+    {
+      "id": "g3-38-stateful-modal",
+      "sourceRef": "G3-38",
+      "title": "预测实验弹出画面",
+      "entry": "g3-38-stateful-modal/index.html",
+      "redacted": true,
+      "coverage": ["modal", "form-state-return", "focus-return", "original-script-preservation"],
+      "outOfScope": ["b4-input-rule-configuration"]
+    },
+    {
+      "id": "g4-52b-generated-content",
+      "sourceRef": "G4-52b",
+      "title": "无人书店推荐语工坊",
+      "entry": "g4-52b-generated-content/index.html",
+      "redacted": true,
+      "coverage": ["modal", "dynamic-dom", "original-script-preservation", "offline-fallback"],
+      "outOfScope": ["real-ai-connector"]
+    },
+    {
+      "id": "g8-23-nested-modal",
+      "sourceRef": "G8-23",
+      "title": "课程介绍与任务详情",
+      "entry": "g8-23-nested-modal/index.html",
+      "redacted": true,
+      "coverage": ["modal", "nested-modal", "original-script-preservation", "a1-inside-modal"],
+      "outOfScope": ["spa-view-discovery"]
+    },
+    {
+      "id": "g8-25-runtime-preview",
+      "sourceRef": "G8-25",
+      "title": "代码预览外层管理",
+      "entry": "g8-25-runtime-preview/index.html",
+      "redacted": true,
+      "coverage": ["runtime-iframe-negative", "original-script-preservation"],
+      "outOfScope": ["iframe-internal-editing", "arbitrary-code-execution"]
+    },
+    {
+      "id": "g10-05-external-iframe",
+      "sourceRef": "G10-05",
+      "title": "外部实验工具",
+      "entry": "g10-05-external-iframe/index.html",
+      "redacted": true,
+      "coverage": ["external-iframe-negative", "outer-only-management"],
+      "outOfScope": ["iframe-internal-editing", "canvas-internal-editing"]
+    },
+    {
+      "id": "g12-35-child-page",
+      "sourceRef": "G12-35",
+      "title": "多模态任务子页面",
+      "entry": "g12-35-child-page/index.html",
+      "redacted": true,
+      "coverage": ["same-origin-child-page", "broken-link-reference", "original-script-preservation"],
+      "outOfScope": ["spa-routing"]
+    }
+  ]
+}

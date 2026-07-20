@@ -234,7 +234,8 @@
     "video",
     "audio",
     "template",
-    `[id="${ROOT_ID}"]`
+    `[id="${ROOT_ID}"]`,
+    "[data-hsm-scene-shell]"
   ].join(",");
 
   const FONTS = [
@@ -352,10 +353,18 @@
       interactionSequenceChoiceHelp: "按照讲课顺序，一项一项显示页面内容。",
       interactionChooseTypeTitle: "选择点击后的结果",
       interactionChooseTypeHelp: "先选择一种效果，下一步再到课件中点击对象。",
-      interactionActionToggle: "显示内容",
-      interactionActionToggleHelp: "适合答案揭晓、提示和补充内容。",
+      interactionActionShow: "显示内容",
+      interactionActionShowHelp: "目标先隐藏，点击后显示，适合答案揭晓和提示。",
+      interactionActionHide: "隐藏内容",
+      interactionActionHideHelp: "目标先显示，点击后隐藏。",
+      interactionActionToggle: "切换显示/隐藏",
+      interactionActionToggleHelp: "目标先隐藏，每次点击在显示和隐藏之间切换。",
       interactionActionModal: "打开弹窗",
       interactionActionModalHelp: "在页面上方弹出说明、图片或视频。",
+      interactionModalCloseTitle: "关闭方式",
+      interactionModalCloseButton: "始终显示关闭按钮",
+      interactionModalCloseBackdrop: "点击遮罩关闭",
+      interactionModalCloseEscape: "按 Esc 关闭",
       interactionActionPage: "跳转页面",
       interactionActionPageHelp: "点击后前往指定课件页面。",
       interactionActionUrl: "打开链接",
@@ -601,10 +610,18 @@
       interactionSequenceChoiceHelp: "Reveal page content one item at a time in teaching order.",
       interactionChooseTypeTitle: "Choose what happens after the click",
       interactionChooseTypeHelp: "Choose an outcome, then select the page element in the next step.",
-      interactionActionToggle: "Show content",
-      interactionActionToggleHelp: "Best for answers, hints, and supporting content.",
+      interactionActionShow: "Show content",
+      interactionActionShowHelp: "Start hidden and show the target after a click.",
+      interactionActionHide: "Hide content",
+      interactionActionHideHelp: "Start visible and hide the target after a click.",
+      interactionActionToggle: "Toggle visibility",
+      interactionActionToggleHelp: "Start hidden and alternate between showing and hiding the target.",
       interactionActionModal: "Open pop-up",
       interactionActionModalHelp: "Show text, an image, or video above the page.",
+      interactionModalCloseTitle: "Close methods",
+      interactionModalCloseButton: "Always show the close button",
+      interactionModalCloseBackdrop: "Close by clicking the backdrop",
+      interactionModalCloseEscape: "Close with Escape",
       interactionActionPage: "Jump to page",
       interactionActionPageHelp: "Open another page in the lesson.",
       interactionActionUrl: "Open link",
@@ -1419,6 +1436,10 @@
       gap: 12px;
       min-height: 50px;
       padding: 7px 8px 7px 14px;
+      pointer-events: none;
+    }
+
+    .interaction-preview-toolbar [data-action="stop-interaction-preview"] {
       pointer-events: auto;
     }
 
@@ -1455,6 +1476,10 @@
     .shell[data-interaction-preview="true"] .collapse,
     .shell[data-interaction-preview="true"] .toolbar-body {
       display: none !important;
+    }
+
+    .shell[data-interaction-preview="true"] .toolbar {
+      pointer-events: none;
     }
 
     .shell[data-interaction-preview="true"] .interaction-preview-toolbar {
@@ -2893,6 +2918,7 @@ async exit() {
       this.stopInteractionPreview?.({ silent: true, returnToEditor: false });
       this.stopSequencePreview?.({ silent: true });
       this.commitActiveText();
+      this.removeSceneNavigationHost?.();
       this.active = false;
       this.selectedId = null;
       this.selectedIds?.clear();
@@ -3506,6 +3532,13 @@ summaryText() {
 
     handleDocumentKeydown(event) {
       if (!this.active) {
+        return;
+      }
+
+      if (this.sceneNavigationStack?.length && event.key === "Escape") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        this.exitScenesToDepth?.(this.sceneNavigationStack.length - 1);
         return;
       }
 
@@ -8759,6 +8792,7 @@ async download(options = {}) {
 
 async serializeCleanHtml(_mode = "basic") {
       this.stopSequencePreview?.({ silent: true });
+      this.exitScenesToDepth?.(0);
       const sourceHtmlForExport = typeof skillSourceHtml === "string" ? skillSourceHtml : "";
       if (sourceHtmlForExport.trim()) {
         const html = this.serializeSourceBasedHtml(sourceHtmlForExport);
@@ -10344,6 +10378,261 @@ escapeDraftCss(value) {
   const SCHEMA_VERSION = "1.3";
 
   ns.mixins.interactions = {
+sceneNavigationScenes() {
+      return Array.isArray(window.__HTML_MENDER_PAGE_NAV__?.scenes)
+        ? window.__HTML_MENDER_PAGE_NAV__.scenes.filter((scene) => scene?.id && scene?.type === "modal")
+        : [];
+    },
+
+sceneNavigationPath(sceneId) {
+      const scenes = this.sceneNavigationScenes();
+      const sceneById = new Map(scenes.map((scene) => [String(scene.id), scene]));
+      const path = [];
+      const visited = new Set();
+      let current = sceneById.get(String(sceneId || ""));
+      while (current) {
+        if (visited.has(current.id)) {
+          return [];
+        }
+        visited.add(current.id);
+        path.push(current);
+        const parentId = String(current.parentSceneId || "");
+        if (!parentId || parentId.startsWith("scene:page:")) {
+          return path.reverse();
+        }
+        current = sceneById.get(parentId);
+        if (!current) {
+          return [];
+        }
+      }
+      return [];
+    },
+
+sceneNavigationTarget(scene) {
+      const entry = scene?.entry || {};
+      let candidates = [];
+      if (entry.targetNodeId) {
+        candidates = Array.from(document.querySelectorAll(`[${INTERACTION_NODE_ATTRIBUTE}]`))
+          .filter((element) => element.getAttribute(INTERACTION_NODE_ATTRIBUTE) === entry.targetNodeId);
+      } else if (entry.targetSelector) {
+        try {
+          candidates = Array.from(document.querySelectorAll(entry.targetSelector));
+        } catch (_error) {
+          return null;
+        }
+      }
+      const unique = Array.from(new Set(candidates));
+      return unique.length === 1 ? unique[0] : null;
+    },
+
+ensureSceneNavigationHost() {
+      if (this.sceneNavigationHost?.isConnected) {
+        return this.sceneNavigationHost;
+      }
+      const style = document.createElement("style");
+      style.setAttribute("data-hsm-editor", "scene-navigation-style");
+      style.textContent = `
+        [data-hsm-scene-modal] {
+          position: fixed;
+          inset: 0;
+          z-index: 2147483646;
+          display: grid;
+          place-items: center;
+          padding: 24px;
+          pointer-events: none;
+        }
+        [data-hsm-scene-modal][hidden] { display: none; }
+        [data-hsm-scene-backdrop] {
+          position: absolute;
+          inset: 0;
+          border: 0;
+          background: rgba(15, 23, 42, 0.58);
+          pointer-events: auto;
+        }
+        [data-hsm-scene-dialog] {
+          position: relative;
+          z-index: 1;
+          width: min(900px, 92vw);
+          max-height: 86vh;
+          overflow: auto;
+          padding: 28px;
+          border: 1px solid rgba(15, 118, 110, 0.32);
+          border-radius: 14px;
+          background: #fffdf7;
+          color: #1d2522;
+          box-shadow: 0 28px 80px rgba(15, 23, 42, 0.28);
+          pointer-events: auto;
+        }
+        [data-hsm-close-scene] {
+          position: absolute;
+          top: 10px;
+          right: 12px;
+          z-index: 2;
+          width: 36px;
+          height: 36px;
+          padding: 0;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          background: #fff;
+          color: #0f172a;
+          font: 700 24px/1 sans-serif;
+          cursor: pointer;
+        }
+        [data-hsm-scene-content] > img,
+        [data-hsm-scene-content] > video,
+        [data-hsm-scene-content] > iframe {
+          max-width: 100%;
+          height: auto;
+        }
+        @media (max-width: 720px) {
+          [data-hsm-scene-modal] { padding: 12px; }
+          [data-hsm-scene-dialog] { width: 96vw; max-height: 88vh; padding: 24px 18px; }
+        }
+      `;
+      const host = document.createElement("div");
+      host.setAttribute("data-hsm-scene-modal", "true");
+      host.setAttribute("data-hsm-scene-shell", "true");
+      host.hidden = true;
+      host.innerHTML = `
+        <button type="button" data-hsm-scene-backdrop data-hsm-editor="scene-backdrop" aria-label="返回上一层"></button>
+        <section data-hsm-scene-dialog data-hsm-scene-shell role="dialog" aria-modal="true" aria-label="弹出内容">
+          <button type="button" data-hsm-close-scene data-hsm-editor="scene-close" aria-label="返回上一层">×</button>
+          <div data-hsm-scene-content data-hsm-scene-shell></div>
+        </section>
+      `;
+      host.querySelector("[data-hsm-scene-backdrop]")?.addEventListener("click", () => {
+        this.exitScenesToDepth((this.sceneNavigationStack?.length || 1) - 1);
+      });
+      host.querySelector("[data-hsm-close-scene]")?.addEventListener("click", () => {
+        this.exitScenesToDepth((this.sceneNavigationStack?.length || 1) - 1);
+      });
+      document.head?.append(style);
+      document.body?.append(host);
+      this.sceneNavigationStyle = style;
+      this.sceneNavigationHost = host;
+      return host;
+    },
+
+sceneNavigationAttributes(element) {
+      return Object.fromEntries(["style", "hidden", "aria-hidden"].map((name) => [name, {
+        present: element.hasAttribute(name),
+        value: element.getAttribute(name) || ""
+      }]));
+    },
+
+restoreSceneNavigationAttributes(element, attributes) {
+      for (const [name, state] of Object.entries(attributes || {})) {
+        if (state.present) {
+          element.setAttribute(name, state.value);
+        } else {
+          element.removeAttribute(name);
+        }
+      }
+    },
+
+enterSceneState(scene, target) {
+      const host = this.ensureSceneNavigationHost();
+      const content = host?.querySelector("[data-hsm-scene-content]");
+      const dialog = host?.querySelector("[data-hsm-scene-dialog]");
+      if (!host || !content || !dialog || !target?.parentNode) {
+        return false;
+      }
+      const placeholder = document.createComment(`hsm-scene:${scene.id}`);
+      const state = {
+        scene,
+        target,
+        placeholder,
+        attributes: this.sceneNavigationAttributes(target)
+      };
+      target.replaceWith(placeholder);
+      target.removeAttribute("hidden");
+      target.removeAttribute("aria-hidden");
+      target.style.removeProperty("display");
+      target.style.removeProperty("visibility");
+      content.replaceChildren(target);
+      dialog.setAttribute("aria-label", scene.title || "弹出内容");
+      host.hidden = false;
+      this.sceneNavigationStack.push(state);
+      host.querySelector("[data-hsm-close-scene]")?.focus?.();
+      return true;
+    },
+
+enterSceneById(sceneId) {
+      if (this.interactionPreviewActive) {
+        return false;
+      }
+      this.sceneNavigationStack = this.sceneNavigationStack || [];
+      const path = this.sceneNavigationPath(sceneId);
+      if (!path.length) {
+        return false;
+      }
+      const targets = path.map((scene) => this.sceneNavigationTarget(scene));
+      if (targets.some((target) => !target) || new Set(targets).size !== targets.length) {
+        return false;
+      }
+      const currentScenes = this.sceneNavigationStack.map((state) => state.scene);
+      let sharedDepth = 0;
+      while (sharedDepth < currentScenes.length && sharedDepth < path.length && currentScenes[sharedDepth].id === path[sharedDepth].id) {
+        sharedDepth += 1;
+      }
+      this.exitScenesToDepth(sharedDepth, { silent: true });
+      for (let index = sharedDepth; index < path.length; index += 1) {
+        if (!this.enterSceneState(path[index], targets[index])) {
+          this.exitScenesToDepth(sharedDepth, { silent: true });
+          this.dispatchSceneNavigation();
+          return false;
+        }
+      }
+      this.dispatchSceneNavigation();
+      this.scheduleScan?.(0);
+      return true;
+    },
+
+exitScenesToDepth(depth = 0, options = {}) {
+      this.sceneNavigationStack = this.sceneNavigationStack || [];
+      const safeDepth = Math.max(0, Math.min(Number(depth) || 0, this.sceneNavigationStack.length));
+      const host = this.sceneNavigationHost;
+      const content = host?.querySelector("[data-hsm-scene-content]");
+      while (this.sceneNavigationStack.length > safeDepth) {
+        const state = this.sceneNavigationStack.pop();
+        if (state?.placeholder?.parentNode && state.target) {
+          state.placeholder.replaceWith(state.target);
+          this.restoreSceneNavigationAttributes(state.target, state.attributes);
+        }
+      }
+      const previous = this.sceneNavigationStack.at(-1);
+      if (previous?.target && content) {
+        content.replaceChildren(previous.target);
+        host?.querySelector("[data-hsm-scene-dialog]")?.setAttribute("aria-label", previous.scene.title || "弹出内容");
+      } else if (host) {
+        host.hidden = true;
+        content?.replaceChildren();
+      }
+      if (!options.silent) {
+        this.dispatchSceneNavigation();
+        this.scheduleScan?.(0);
+      }
+      return true;
+    },
+
+dispatchSceneNavigation() {
+      const path = (this.sceneNavigationStack || []).map((state) => ({
+        id: String(state.scene?.id || ""),
+        title: String(state.scene?.title || "弹出内容")
+      }));
+      window.dispatchEvent(new CustomEvent("hsm-scene-navigation", { detail: { path } }));
+    },
+
+removeSceneNavigationHost() {
+      this.exitScenesToDepth(0, { silent: true });
+      this.sceneNavigationHost?.remove();
+      this.sceneNavigationStyle?.remove();
+      this.sceneNavigationHost = null;
+      this.sceneNavigationStyle = null;
+      this.sceneNavigationStack = [];
+      this.dispatchSceneNavigation();
+    },
+
 loadInteractionManifest() {
       this.interactions = [];
       this.sequences = [];
@@ -10367,13 +10656,16 @@ loadInteractionManifest() {
 
 normalizeInteraction(interaction) {
       const actionType = String(interaction?.action?.type || "");
-      const supported = ["toggleVisibility", "openModal", "goToPage", "openUrl"];
+      const supported = ["showVisibility", "hideVisibility", "toggleVisibility", "openModal", "goToPage", "openUrl"];
       if (!interaction?.id || !interaction?.trigger?.nodeId || !supported.includes(actionType)) {
         return null;
       }
       const targetId = String(interaction.action?.targetId || "");
-      const href = String(interaction.action?.href || "");
-      if ((actionType === "toggleVisibility" || actionType === "openModal") && !targetId) {
+      const sourceHref = String(interaction.action?.href || "");
+      const href = actionType === "openUrl"
+        ? this.normalizeExternalInteractionUrl(sourceHref)
+        : sourceHref;
+      if (["showVisibility", "hideVisibility", "toggleVisibility", "openModal"].includes(actionType) && !targetId) {
         return null;
       }
       if ((actionType === "goToPage" || actionType === "openUrl") && !href) {
@@ -10390,6 +10682,13 @@ normalizeInteraction(interaction) {
           type: actionType,
           ...(targetId ? { targetId } : {}),
           ...(href ? { href } : {}),
+          ...(actionType === "openModal" ? {
+            close: {
+              button: true,
+              backdrop: interaction.action?.close?.backdrop !== false,
+              escape: interaction.action?.close?.escape !== false
+            }
+          } : {}),
           ...(actionType === "openUrl" ? { newWindow: interaction.action?.newWindow !== false } : {}),
           ...(interaction.action?.pageId ? { pageId: String(interaction.action.pageId) } : {}),
           ...(interaction.action?.pageLabel ? { pageLabel: String(interaction.action.pageLabel) } : {})
@@ -10545,6 +10844,9 @@ addSelectedItemsToSequence() {
         added += 1;
       }
       if (!added) {
+        if (!sequence.steps.length) {
+          this.sequences = this.sequences.filter((entry) => entry !== sequence);
+        }
         this.toast(this.t(blocked ? "sequenceTriggerConflict" : "sequenceAlreadyAdded"));
         return;
       }
@@ -10775,6 +11077,8 @@ resetInteractionWizardState() {
       this.interactionWizardPageId = "";
       this.interactionWizardUrl = "";
       this.interactionWizardNewWindow = true;
+      this.interactionWizardModalBackdrop = true;
+      this.interactionWizardModalEscape = true;
       this.interactionWizardEffect = "none";
       this.interactionWizardDuration = 400;
       this.interactionAdvancedOpen = false;
@@ -10809,7 +11113,7 @@ cancelInteractionWizard(options = {}) {
     },
 
 chooseInteractionWizardAction(action) {
-      if (!["toggleVisibility", "openModal", "goToPage", "openUrl"].includes(action)) {
+      if (!["showVisibility", "hideVisibility", "toggleVisibility", "openModal", "goToPage", "openUrl"].includes(action)) {
         return;
       }
       this.interactionWizardAction = action;
@@ -10822,7 +11126,7 @@ chooseInteractionWizardAction(action) {
     },
 
 interactionActionNeedsTarget(action = this.interactionWizardAction) {
-      return action === "toggleVisibility" || action === "openModal";
+      return ["showVisibility", "hideVisibility", "toggleVisibility", "openModal"].includes(action);
     },
 
 handleInteractionCanvasSelection(item) {
@@ -10870,6 +11174,10 @@ updateInteractionWizardControl(control, value, options = {}) {
         this.interactionWizardUrl = String(value || "");
       } else if (control === "newWindow") {
         this.interactionWizardNewWindow = Boolean(value);
+      } else if (control === "modalBackdrop") {
+        this.interactionWizardModalBackdrop = Boolean(value);
+      } else if (control === "modalEscape") {
+        this.interactionWizardModalEscape = Boolean(value);
       } else if (control === "effect") {
         this.interactionWizardEffect = ["fadeIn", "flyIn", "zoomIn"].includes(value) ? value : "none";
       } else if (control === "duration") {
@@ -11005,13 +11313,28 @@ completeInteractionWizard() {
           this.toast(this.t("interactionChooseTarget"));
           return;
         }
-        target.setAttribute(INITIAL_ATTRIBUTE, "hidden");
+        const initialTarget = action === "hideVisibility" ? "visible" : "hidden";
+        if (initialTarget === "hidden") {
+          target.setAttribute(INITIAL_ATTRIBUTE, "hidden");
+        } else {
+          target.removeAttribute(INITIAL_ATTRIBUTE);
+        }
         interaction = {
           id: this.nextInteractionId(),
           name: `${this.interactionElementLabel(trigger)} → ${this.interactionElementLabel(target)}`,
           trigger: { event: "click", nodeId: triggerId },
-          action: { type: action, targetId: this.interactionWizardTargetNodeId },
-          initialState: { target: "hidden" },
+          action: {
+            type: action,
+            targetId: this.interactionWizardTargetNodeId,
+            ...(action === "openModal" ? {
+              close: {
+                button: true,
+                backdrop: this.interactionWizardModalBackdrop !== false,
+                escape: this.interactionWizardModalEscape !== false
+              }
+            } : {})
+          },
+          initialState: { target: initialTarget },
           effect: this.interactionWizardEffectValue(),
           record: { type: "interaction.activated" }
         };
@@ -11079,8 +11402,25 @@ interactionElement(nodeId) {
       if (!nodeId) {
         return null;
       }
-      return Array.from(document.querySelectorAll(`[${INTERACTION_NODE_ATTRIBUTE}]`))
-        .find((element) => element.getAttribute(INTERACTION_NODE_ATTRIBUTE) === nodeId) || null;
+      const documentElement = Array.from(document.querySelectorAll(`[${INTERACTION_NODE_ATTRIBUTE}]`))
+        .find((element) => element.getAttribute(INTERACTION_NODE_ATTRIBUTE) === nodeId);
+      if (documentElement) {
+        return documentElement;
+      }
+      const modalTargets = (this.interactionPreviewModalStack || [])
+        .map((state) => state.target)
+        .reverse();
+      for (const modalTarget of modalTargets) {
+        if (modalTarget?.getAttribute?.(INTERACTION_NODE_ATTRIBUTE) === nodeId) {
+          return modalTarget;
+        }
+        const nestedElement = Array.from(modalTarget?.querySelectorAll?.(`[${INTERACTION_NODE_ATTRIBUTE}]`) || [])
+          .find((element) => element.getAttribute(INTERACTION_NODE_ATTRIBUTE) === nodeId);
+        if (nestedElement) {
+          return nestedElement;
+        }
+      }
+      return null;
     },
 
 interactionElementLabel(element) {
@@ -11146,7 +11486,11 @@ createModalInteraction() {
         id: this.nextInteractionId(),
         name: `${this.interactionElementLabel(triggerElement)} → ${this.t("interactionCreateModal")}`,
         trigger: { event: "click", nodeId: this.pendingInteractionTriggerNodeId },
-        action: { type: "openModal", targetId: target.nodeId },
+        action: {
+          type: "openModal",
+          targetId: target.nodeId,
+          close: { button: true, backdrop: true, escape: true }
+        },
         initialState: { target: "hidden" },
         effect: this.selectedInteractionEffect(),
         record: { type: "interaction.activated" }
@@ -11392,7 +11736,9 @@ prepareInteractionPreviewState() {
     },
 
 restoreInteractionPreviewState() {
-      this.closeInteractionPreviewModal?.({ restoreFocus: false });
+      while (this.interactionPreviewModalStack?.length) {
+        this.closeInteractionPreviewModal?.({ restoreFocus: false });
+      }
       for (const [element, state] of this.interactionPreviewElementStates || []) {
         if (!element?.isConnected) {
           continue;
@@ -11505,10 +11851,12 @@ activateInteractionPreview(interaction) {
       if (actionType === "openModal") {
         return this.openInteractionPreviewModal(interaction, target);
       }
-      if (actionType !== "toggleVisibility") {
+      if (!["showVisibility", "hideVisibility", "toggleVisibility"].includes(actionType)) {
         return false;
       }
-      const visible = target.hasAttribute("data-hsm-interaction-preview-hidden");
+      const visible = actionType === "showVisibility"
+        ? true
+        : (actionType === "hideVisibility" ? false : target.hasAttribute("data-hsm-interaction-preview-hidden"));
       this.previewSetVisible(target, visible);
       if (visible) {
         this.playInteractionPreviewEffect(target, interaction.effect);
@@ -11523,17 +11871,49 @@ openInteractionPreviewModal(interaction, target) {
       if (!root || !content || !target) {
         return false;
       }
-      const clone = target.cloneNode(true);
-      clone.removeAttribute(INTERACTION_NODE_ATTRIBUTE);
-      clone.removeAttribute(INITIAL_ATTRIBUTE);
-      clone.removeAttribute("data-hsm-interaction-preview-hidden");
-      clone.removeAttribute("aria-hidden");
-      clone.style.removeProperty("display");
-      clone.querySelectorAll?.(`[${INTERACTION_NODE_ATTRIBUTE}]`).forEach((node) => node.removeAttribute(INTERACTION_NODE_ATTRIBUTE));
-      content.replaceChildren(clone);
+      this.interactionPreviewModalStack = this.interactionPreviewModalStack || [];
+      const trigger = this.interactionElement(interaction?.trigger?.nodeId);
+      const placeholder = document.createComment(`hsm-preview-modal:${interaction?.id || "modal"}`);
+      const attributes = Object.fromEntries([
+        "style",
+        "hidden",
+        "aria-hidden",
+        "data-hsm-interaction-preview-hidden"
+      ].map((name) => [name, {
+        present: target.hasAttribute(name),
+        value: target.getAttribute(name) || ""
+      }]));
+      target.replaceWith(placeholder);
+      target.removeAttribute("hidden");
+      this.previewSetVisible(target, true);
+      content.replaceChildren(target);
+      const closeOptions = {
+        button: true,
+        backdrop: interaction?.action?.close?.backdrop !== false,
+        escape: interaction?.action?.close?.escape !== false
+      };
+      const modalState = {
+        target,
+        placeholder,
+        attributes,
+        trigger,
+        closeOptions,
+        label: interaction?.name || this.t("interactionPreviewMode"),
+        interactionId: String(interaction?.id || ""),
+        sceneId: String(interaction?.sceneId || interaction?.action?.sceneId || interaction?.id || "")
+      };
+      this.interactionPreviewModalStack.push(modalState);
+      this.emitInteractionPreviewSceneEvent("scene.entered", modalState, this.interactionPreviewModalStack.length);
+      this.interactionPreviewModalClose = closeOptions;
+      root.onclick = (event) => {
+        const current = this.interactionPreviewModalStack?.at(-1);
+        if (event.target === root && current?.closeOptions?.backdrop !== false) {
+          this.closeInteractionPreviewModal();
+        }
+      };
       dialog?.setAttribute("aria-label", interaction?.name || this.t("interactionPreviewMode"));
       root.hidden = false;
-      this.interactionPreviewModalTrigger = this.interactionElement(interaction?.trigger?.nodeId);
+      this.interactionPreviewModalTrigger = trigger;
       this.shadow?.querySelector('[data-action="close-interaction-preview-modal"]')?.focus?.();
       this.playInteractionPreviewEffect(dialog, interaction?.effect);
       return true;
@@ -11545,13 +11925,55 @@ closeInteractionPreviewModal(options = {}) {
       if (!root || root.hidden) {
         return false;
       }
-      root.hidden = true;
-      content?.replaceChildren();
-      if (options.restoreFocus !== false) {
-        this.interactionPreviewModalTrigger?.focus?.();
+      const stack = this.interactionPreviewModalStack || [];
+      const depth = stack.length;
+      const state = stack.pop();
+      if (!state) {
+        root.hidden = true;
+        return false;
       }
-      this.interactionPreviewModalTrigger = null;
+      if (state?.placeholder?.parentNode && state.target) {
+        state.placeholder.replaceWith(state.target);
+        for (const [name, attribute] of Object.entries(state.attributes)) {
+          if (attribute.present) {
+            state.target.setAttribute(name, attribute.value);
+          } else {
+            state.target.removeAttribute(name);
+          }
+        }
+      }
+      const previous = stack.at(-1);
+      if (previous?.target) {
+        content?.replaceChildren(previous.target);
+        this.interactionPreviewModalClose = previous.closeOptions;
+        this.interactionPreviewModalTrigger = previous.trigger;
+        root.querySelector?.('[role="dialog"]')?.setAttribute("aria-label", previous.label);
+      } else {
+        root.hidden = true;
+        root.onclick = null;
+        content?.replaceChildren();
+        this.interactionPreviewModalClose = null;
+        this.interactionPreviewModalTrigger = null;
+      }
+      if (options.restoreFocus !== false) {
+        state.trigger?.focus?.();
+      }
+      this.emitInteractionPreviewSceneEvent("scene.exited", state, depth);
       return true;
+    },
+
+emitInteractionPreviewSceneEvent(type, state, depth) {
+      window.dispatchEvent(new CustomEvent("hsm-scene-event", {
+        detail: {
+          schemaVersion: SCHEMA_VERSION,
+          type,
+          timestamp: new Date().toISOString(),
+          sceneId: state?.sceneId || "",
+          interactionId: state?.interactionId || "",
+          depth,
+          preview: true
+        }
+      }));
     },
 
 advanceInteractionPreviewSequence() {
@@ -11571,10 +11993,14 @@ advanceInteractionPreviewSequence() {
     },
 
 handleInteractionPreviewClick(event) {
-      if (!this.interactionPreviewActive || this.host && event.composedPath?.().includes(this.host)) {
+      const eventPath = event.composedPath?.() || [];
+      const modalContent = this.shadow?.querySelector('[data-role="interaction-preview-dialog-content"]');
+      const insidePreviewModal = Boolean(modalContent && eventPath.includes(modalContent));
+      if (!this.interactionPreviewActive || (this.host && eventPath.includes(this.host) && !insidePreviewModal)) {
         return;
       }
-      const triggerElement = event.target?.closest?.(`[${INTERACTION_NODE_ATTRIBUTE}]`);
+      const triggerElement = eventPath.find((node) => node?.hasAttribute?.(INTERACTION_NODE_ATTRIBUTE))
+        || event.target?.closest?.(`[${INTERACTION_NODE_ATTRIBUTE}]`);
       const nodeId = triggerElement?.getAttribute?.(INTERACTION_NODE_ATTRIBUTE) || "";
       const interaction = this.interactions?.find((item) => item.trigger?.nodeId === nodeId);
       if (interaction) {
@@ -11591,10 +12017,15 @@ handleInteractionPreviewClick(event) {
     },
 
 handleInteractionPreviewKeydown(event) {
-      if (this.host && event.composedPath?.().includes(this.host)) {
+      const eventInsideEditor = this.host && event.composedPath?.().includes(this.host);
+      if (eventInsideEditor && event.key !== "Escape") {
         return;
       }
       if (event.key === "Escape") {
+        const modal = this.shadow?.querySelector('[data-role="interaction-preview-modal"]');
+        if (modal && !modal.hidden && this.interactionPreviewModalClose?.escape === false) {
+          return;
+        }
         event.preventDefault();
         event.stopImmediatePropagation();
         if (!this.closeInteractionPreviewModal()) {
@@ -11715,14 +12146,18 @@ interactionNodeExportPatches(sourceDocument) {
         const isHiddenTarget = this.interactions.some((interaction) =>
           interaction.action.targetId === nodeId && interaction.initialState?.target === "hidden"
         );
+        const interactionAttributes = {
+          [INTERACTION_NODE_ATTRIBUTE]: nodeId,
+          [INITIAL_ATTRIBUTE]: isHiddenTarget ? "hidden" : ""
+        };
+        if (isHiddenTarget) {
+          interactionAttributes.hidden = true;
+        }
         patches.push({
           selector,
           sourcePath,
           kind: "interaction",
-          interactionAttributes: {
-            [INTERACTION_NODE_ATTRIBUTE]: nodeId,
-            [INITIAL_ATTRIBUTE]: isHiddenTarget ? "hidden" : ""
-          }
+          interactionAttributes
         });
       }
       return patches;
@@ -11809,6 +12244,8 @@ interactionEffectLabel(effect) {
 
 interactionActionLabel(action = this.interactionWizardAction) {
       return {
+        showVisibility: this.t("interactionActionShow"),
+        hideVisibility: this.t("interactionActionHide"),
         toggleVisibility: this.t("interactionActionToggle"),
         openModal: this.t("interactionActionModal"),
         goToPage: this.t("interactionActionPage"),
@@ -11839,6 +12276,7 @@ interactionWizardAdvancedMarkup() {
       const action = this.interactionWizardAction;
       const supportsEffect = this.interactionActionNeedsTarget(action);
       const supportsNewWindow = action === "openUrl";
+      const supportsModalClose = action === "openModal";
       if (!supportsEffect && !supportsNewWindow) {
         return "";
       }
@@ -11862,6 +12300,14 @@ interactionWizardAdvancedMarkup() {
             <label><span>${escapeHtml(this.t("interactionNewWindow"))}</span>
               <input data-role="interaction-new-window" data-wizard-control="newWindow" type="checkbox"${this.interactionWizardNewWindow ? " checked" : ""}>
             </label>
+          ` : ""}
+          ${supportsModalClose ? `
+            <fieldset>
+              <legend>${escapeHtml(this.t("interactionModalCloseTitle"))}</legend>
+              <label><input type="checkbox" checked disabled> ${escapeHtml(this.t("interactionModalCloseButton"))}</label>
+              <label><input data-wizard-control="modalBackdrop" type="checkbox"${this.interactionWizardModalBackdrop ? " checked" : ""}> ${escapeHtml(this.t("interactionModalCloseBackdrop"))}</label>
+              <label><input data-wizard-control="modalEscape" type="checkbox"${this.interactionWizardModalEscape ? " checked" : ""}> ${escapeHtml(this.t("interactionModalCloseEscape"))}</label>
+            </fieldset>
           ` : ""}
         </div>
       ` : "";
@@ -11891,6 +12337,8 @@ interactionWizardBodyMarkup() {
       const step = this.interactionWizardStep || 1;
       if (step === 1) {
         const choices = [
+          ["showVisibility", "interactionActionShow", "interactionActionShowHelp"],
+          ["hideVisibility", "interactionActionHide", "interactionActionHideHelp"],
           ["toggleVisibility", "interactionActionToggle", "interactionActionToggleHelp"],
           ["openModal", "interactionActionModal", "interactionActionModalHelp"],
           ["goToPage", "interactionActionPage", "interactionActionPageHelp"],
@@ -12198,6 +12646,8 @@ refreshInteractionPanel() {
       this.interactionWizardPageId = "";
       this.interactionWizardUrl = "";
       this.interactionWizardNewWindow = true;
+      this.interactionWizardModalBackdrop = true;
+      this.interactionWizardModalEscape = true;
       this.interactionWizardEffect = "none";
       this.interactionWizardDuration = 400;
       this.interactionAdvancedOpen = false;
@@ -12209,6 +12659,10 @@ refreshInteractionPanel() {
       this.interactionPreviewElementStates = new Map();
       this.interactionPreviewSequenceEntries = [];
       this.interactionPreviewSequenceIndex = 0;
+      this.interactionPreviewModalClose = null;
+      this.sceneNavigationStack = [];
+      this.sceneNavigationHost = null;
+      this.sceneNavigationStyle = null;
       this.pendingInteractionTriggerNodeId = "";
       this.interactions = [];
       this.sequences = [];

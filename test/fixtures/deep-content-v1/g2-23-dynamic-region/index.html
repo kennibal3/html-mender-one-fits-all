@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>智能教室任务</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    button { padding: 0.75rem 1rem; font-size: 1.1rem; }
+    .task { margin-top: 1rem; padding: 1rem; background: #eff6ff; border-radius: 0.75rem; }
+  </style>
+</head>
+<body data-sample-id="g2-23-dynamic-region">
+  <h1>智能教室</h1>
+  <p>任务区会在点击后加入普通页面结构。</p>
+  <button id="show-task" type="button">开始组装</button>
+  <main id="task-host" aria-live="polite"></main>
+  <script>
+    document.querySelector('#show-task').addEventListener('click', () => {
+      if (document.querySelector('#dynamic-task')) return;
+      const task = document.createElement('section');
+      task.id = 'dynamic-task';
+      task.className = 'task';
+      task.innerHTML = '<h2>声音传感器任务</h2><button id="sensor-action" type="button">测试声音</button><p id="sensor-result">等待测试</p>';
+      document.querySelector('#task-host').appendChild(task);
+      document.querySelector('#sensor-action').addEventListener('click', () => {
+        document.querySelector('#sensor-result').textContent = '声音太大，提示灯亮起';
+      });
+    });
+  </script>
+</body>
+</html>
