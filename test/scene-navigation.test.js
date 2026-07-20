@@ -76,6 +76,111 @@ async function openNestedSceneEditor(page) {
   return directory;
 }
 
+async function openRealClickSceneEditor(page) {
+  const directory = await mkdtemp(join(tmpdir(), "html-mender-real-click-scene-"));
+  const sourcePath = join(directory, "index.html");
+  const editablePath = join(directory, "index.editable.html");
+  const fixture = await readFile(
+    new URL("./fixtures/deep-content-v1/g8-23-nested-modal/index.html", import.meta.url),
+    "utf8"
+  );
+  const manifest = {
+    schemaVersion: "1.3",
+    interactions: [
+      {
+        id: "open-course",
+        name: "课程介绍",
+        trigger: { event: "click", nodeId: "open-course-trigger" },
+        action: {
+          type: "openModal",
+          targetId: "course-modal",
+          close: { button: true, backdrop: true, escape: true }
+        },
+        initialState: { target: "hidden" },
+        effect: { type: "none", duration: 400 }
+      },
+      {
+        id: "open-detail",
+        name: "任务详情",
+        trigger: { event: "click", nodeId: "open-detail-trigger" },
+        action: {
+          type: "openModal",
+          targetId: "detail-modal",
+          close: { button: true, backdrop: true, escape: true }
+        },
+        initialState: { target: "hidden" },
+        effect: { type: "none", duration: 400 }
+      }
+    ],
+    sequences: []
+  };
+  const source = fixture
+    .replace('<button id="open-intro"', '<button id="open-intro" data-hsm-node-id="open-course-trigger"')
+    .replace('<section id="intro"', '<section id="intro" data-hsm-node-id="course-modal"')
+    .replace(
+      '<h2 id="intro-title">课程介绍</h2>',
+      '<h2 id="intro-title">课程介绍</h2><label>教师记录<input id="teacher-note" value="初始内容"></label>'
+    )
+    .replace('<button id="open-detail"', '<button id="open-detail" data-hsm-node-id="open-detail-trigger"')
+    .replace('<section id="detail"', '<section id="detail" data-hsm-node-id="detail-modal"')
+    .replace(
+      "</body>",
+      `<script type="application/json" data-hsm-interaction-manifest="1">${JSON.stringify(manifest)}</script></body>`
+    );
+  await writeFile(sourcePath, source, "utf8");
+  await makeEditableHtml({ inputPath: sourcePath, outputPath: editablePath, lang: "zh-CN" });
+  await injectVersionSaveButton({
+    htmlPath: editablePath,
+    projectId: "real-click-scene-project",
+    editRelativePath: "index.editable.html",
+    pageNav: {
+      taskName: "真实点击样本",
+      pageLabel: "第 1 页",
+      pageTitle: "首页",
+      pages: [{
+        id: "p001",
+        label: "第 1 页",
+        title: "",
+        sourceRelativePath: "technical-file-name.html",
+        editUrl: pathToFileURL(editablePath).href,
+        current: true
+      }],
+      scenes: [
+        {
+          id: "scene:modal:p001:open-course",
+          type: "modal",
+          pageId: "p001",
+          parentSceneId: "scene:page:p001",
+          title: "课程介绍",
+          entry: {
+            type: "interaction",
+            interactionId: "open-course",
+            triggerNodeId: "open-course-trigger",
+            targetNodeId: "course-modal"
+          }
+        },
+        {
+          id: "scene:modal:p001:open-detail",
+          type: "modal",
+          pageId: "p001",
+          parentSceneId: "scene:modal:p001:open-course",
+          title: "任务详情",
+          entry: {
+            type: "interaction",
+            interactionId: "open-detail",
+            triggerNodeId: "open-detail-trigger",
+            targetNodeId: "detail-modal"
+          }
+        }
+      ]
+    }
+  });
+  await page.goto(pathToFileURL(editablePath).href);
+  await page.waitForFunction(() => window.__htmlSlideMenderBootstrap?.editor?.active === true);
+  await page.waitForSelector("[data-hsm-scene-tree]");
+  return directory;
+}
+
 test("场景树可进入嵌套真实节点、逐层返回并安全保存", async () => {
   const browser = await launchBrowser();
   const page = await browser.newPage();
@@ -166,6 +271,107 @@ test("场景树可进入嵌套真实节点、逐层返回并安全保存", async
     assert.equal((serialized.html.match(/id="intro"/g) || []).length, 1);
     assert.equal((serialized.html.match(/id="detail"/g) || []).length, 1);
     assert.doesNotMatch(serialized.html, /data-hsm-scene-modal|data-hsm-scene-content|课件画面/);
+    assert.deepEqual(consoleErrors, []);
+  } finally {
+    await page.close();
+    await browser.close();
+    if (directory) await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("真实点击弹窗后场景树与可见标题位置同步，逐层返回保留活动节点状态", async () => {
+  const browser = await launchBrowser();
+  const page = await browser.newPage();
+  const consoleErrors = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => consoleErrors.push(error.message));
+  let directory = "";
+  try {
+    directory = await openRealClickSceneEditor(page);
+    await page.evaluate(() => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      window.__realClickIntroReference = document.querySelector("#intro");
+      window.__realClickDetailReference = document.querySelector("#detail");
+      document.querySelector("#toggle-tip").addEventListener("click", (event) => {
+        event.currentTarget.dataset.runCount = String(Number(event.currentTarget.dataset.runCount || 0) + 1);
+        event.stopImmediatePropagation();
+      }, { capture: true });
+      editor.enterInteractionMode();
+      editor.startInteractionPreview();
+    });
+
+    await page.locator("[data-hsm-page-sidebar] .hsm-page-sidebar-close").click();
+    await page.locator("#open-intro").click();
+    await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.interactionPreviewModalStack?.length === 1);
+    const outerLocation = await page.evaluate(() => ({
+      breadcrumb: document.querySelector("[data-hsm-scene-breadcrumb]").textContent,
+      outerCurrent: document.querySelector('[data-hsm-open-scene="scene:modal:p001:open-course"]')?.getAttribute("aria-current"),
+      innerCurrent: document.querySelector('[data-hsm-open-scene="scene:modal:p001:open-detail"]')?.getAttribute("aria-current")
+    }));
+    assert.match(outerLocation.breadcrumb, /首页.*课程介绍/);
+    assert.equal(outerLocation.outerCurrent, "true");
+    assert.notEqual(outerLocation.innerCurrent, "true");
+    assert.doesNotMatch(outerLocation.breadcrumb, /technical-file-name|scene:|open-course/);
+
+    await page.locator("#teacher-note").fill("教师已输入");
+    await page.locator("#toggle-tip").click();
+    await page.locator("#open-detail").click();
+    await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.interactionPreviewModalStack?.length === 2);
+    const innerLocation = await page.evaluate(() => ({
+      breadcrumb: document.querySelector("[data-hsm-scene-breadcrumb]").textContent,
+      outerCurrent: document.querySelector('[data-hsm-open-scene="scene:modal:p001:open-course"]')?.getAttribute("aria-current"),
+      innerCurrent: document.querySelector('[data-hsm-open-scene="scene:modal:p001:open-detail"]')?.getAttribute("aria-current")
+    }));
+    assert.match(innerLocation.breadcrumb, /首页.*课程介绍.*任务详情/);
+    assert.equal(innerLocation.outerCurrent, "true");
+    assert.equal(innerLocation.innerCurrent, "true");
+
+    await page.locator('[data-action="close-interaction-preview-modal"]').click();
+    await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.interactionPreviewModalStack?.length === 1);
+    const returnedToParent = await page.evaluate(() => {
+      const content = window.__htmlSlideMenderBootstrap.editor.shadow
+        .querySelector('[data-role="interaction-preview-dialog-content"]');
+      return {
+        breadcrumb: document.querySelector("[data-hsm-scene-breadcrumb]").textContent,
+        outerCurrent: document.querySelector('[data-hsm-open-scene="scene:modal:p001:open-course"]')?.getAttribute("aria-current"),
+        innerCurrent: document.querySelector('[data-hsm-open-scene="scene:modal:p001:open-detail"]')?.getAttribute("aria-current"),
+        inputValue: content.querySelector("#teacher-note")?.value,
+        originalEventRunCount: content.querySelector("#toggle-tip")?.dataset.runCount
+      };
+    });
+    assert.match(returnedToParent.breadcrumb, /首页.*课程介绍/);
+    assert.doesNotMatch(returnedToParent.breadcrumb, /任务详情/);
+    assert.equal(returnedToParent.outerCurrent, "true");
+    assert.notEqual(returnedToParent.innerCurrent, "true");
+    assert.equal(returnedToParent.inputValue, "教师已输入");
+    assert.equal(returnedToParent.originalEventRunCount, "1");
+
+    await page.locator('[data-action="close-interaction-preview-modal"]').click();
+    await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.interactionPreviewModalStack?.length === 0);
+    const returnedHome = await page.evaluate(() => ({
+      breadcrumb: document.querySelector("[data-hsm-scene-breadcrumb]").textContent,
+      outerCurrent: document.querySelector('[data-hsm-open-scene="scene:modal:p001:open-course"]')?.getAttribute("aria-current"),
+      innerCurrent: document.querySelector('[data-hsm-open-scene="scene:modal:p001:open-detail"]')?.getAttribute("aria-current"),
+      introIsOriginal: document.querySelector("#intro") === window.__realClickIntroReference,
+      detailIsOriginal: document.querySelector("#detail") === window.__realClickDetailReference,
+      introHidden: document.querySelector("#intro")?.hidden,
+      detailHidden: document.querySelector("#detail")?.hidden,
+      inputValue: document.querySelector("#teacher-note")?.value,
+      focusedId: document.activeElement?.id
+    }));
+    assert.deepEqual(returnedHome, {
+      breadcrumb: "首页",
+      outerCurrent: "false",
+      innerCurrent: "false",
+      introIsOriginal: true,
+      detailIsOriginal: true,
+      introHidden: true,
+      detailHidden: true,
+      inputValue: "教师已输入",
+      focusedId: "open-intro"
+    });
     assert.deepEqual(consoleErrors, []);
   } finally {
     await page.close();
