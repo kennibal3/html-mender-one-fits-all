@@ -168,7 +168,7 @@
 (() => {
   const ns = window.HtmlSlideMenderExtension = window.HtmlSlideMenderExtension || {};
   const MESSAGE_NAMESPACE = "HTML_SLIDE_MENDER";
-  const EDITOR_BUILD_ID = "2026-07-22-deep-modal-image-frame-v3";
+  const EDITOR_BUILD_ID = "2026-07-23-deep-modal-single-layout-v1";
   const ROOT_ID = "html-slide-mender-root";
   const INTERACTION_NODE_ATTRIBUTE = "data-hsm-node-id";
   const TEXT_SELECTOR = [
@@ -3663,7 +3663,6 @@ handleSceneContentClick(event) {
         || !this.sceneNavigationStack?.length
         || this.interactionPreviewActive
         || this.isInteractionSelectionMode?.()
-        || this.isLayoutMode?.()
       ) {
         return;
       }
@@ -3673,8 +3672,34 @@ handleSceneContentClick(event) {
       if (
         !target
         || !activeSceneTarget?.contains?.(target)
-        || target.closest?.("button,a[href],input,textarea,select,summary,[contenteditable='true']")
       ) {
+        return;
+      }
+
+      if (this.isLayoutMode?.()) {
+        const matchingItems = Array.from(this.items.values())
+          .filter((candidate) => this.layoutTargetForItem?.(candidate))
+          .filter((candidate) => this.eventTargetsItem(target, candidate));
+        const item = matchingItems.find((candidate) =>
+          candidate.element === target || candidate.frameElement === target
+        ) || matchingItems.sort((left, right) => {
+          const leftRect = this.layoutTargetForItem(left).getBoundingClientRect();
+          const rightRect = this.layoutTargetForItem(right).getBoundingClientRect();
+          return leftRect.width * leftRect.height - rightRect.width * rightRect.height;
+        })[0];
+        if (!item) {
+          return;
+        }
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        this.closeOpenMenus();
+        this.selectItem(item.id);
+        this.shadow?.activeElement?.blur?.();
+        return;
+      }
+
+      if (target.closest?.("button,a[href],input,textarea,select,summary,[contenteditable='true']")) {
         return;
       }
 
@@ -4472,6 +4497,7 @@ bindUiEvents() {
           } else {
             this.selectItem(item.id);
           }
+          this.shadow?.activeElement?.blur?.();
           return;
         }
         this.closeOpenMenus();
@@ -5085,7 +5111,7 @@ refreshExportModeControl() {
       }
 
       if (this.sceneNavigationHost) {
-        if (item?.type === "image" && this.sceneNavigationStack?.length) {
+        if ((item?.type === "image" || this.isLayoutMode?.()) && this.sceneNavigationStack?.length) {
           this.sceneNavigationHost.style.zIndex = "2147483644";
         } else {
           this.sceneNavigationHost.style.removeProperty("z-index");
@@ -5256,8 +5282,8 @@ template() {
             </div>
 
             <div class="group group-default">
-              <button type="button" data-action="undo">${escapeHtml(this.t("undo"))}</button>
-              <button type="button" data-action="redo">${escapeHtml(this.t("redo"))}</button>
+              <button type="button" data-action="undo" title="${escapeAttr(this.t("undo"))}" aria-label="${escapeAttr(this.t("undo"))}">↶</button>
+              <button type="button" data-action="redo" title="${escapeAttr(this.t("redo"))}" aria-label="${escapeAttr(this.t("redo"))}">↷</button>
               <button type="button" data-action="rescan">${escapeHtml(this.t("rescan"))}</button>
               <button type="button" data-action="toggle-boxes" aria-pressed="${this.showBoxes ? "true" : "false"}">${escapeHtml(this.showBoxes ? this.t("boxesOn") : this.t("boxesOff"))}</button>
               <button type="button" data-action="language">${escapeHtml(this.t("language"))}</button>

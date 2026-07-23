@@ -572,6 +572,233 @@ test("场景树进入弹窗后可替换真实普通图片，返回并重新进�
   }
 });
 
+test("弹窗内单个真实元素可移动缩放微调，撤销重做后返回重进仍保留", async () => {
+  const browser = await launchBrowser();
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const consoleErrors = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => consoleErrors.push(error.message));
+  let directory = "";
+  try {
+    directory = await openNestedSceneEditor(page);
+    await page.evaluate(() => {
+      window.__layoutTitleReference = document.querySelector("#intro-title");
+      window.__layoutTitleParent = document.querySelector("#intro-title").parentNode;
+    });
+    await clickSceneTreeNode(page, "scene:modal:p001:outer");
+    await page.evaluate(() => window.__htmlSlideMenderBootstrap.editor.shadow
+      .querySelector('[data-action="layout-mode"]')
+      .click());
+
+    const titleItemHandle = await page.waitForFunction(() => {
+      const editor = window.__htmlSlideMenderBootstrap?.editor;
+      if (editor?.editMode !== "layout" || editor.sceneNavigationStack?.length !== 1) return "";
+      const item = Array.from(editor.items.values())
+        .find((candidate) => candidate.element?.id === "intro-title");
+      return item?.id || "";
+    });
+    const titleItemId = await titleItemHandle.jsonValue();
+    assert.notEqual(titleItemId, "");
+    await clickEditorItem(page, titleItemId);
+    const selectedLayoutState = await page.evaluate(() => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      return {
+        editMode: editor.editMode,
+        selectedId: editor.selectedId,
+        selectedIds: Array.from(editor.selectedIds || []),
+        activeTag: document.activeElement?.tagName || "",
+        shadowActiveAction: editor.shadow?.activeElement?.getAttribute?.("data-action") || ""
+      };
+    });
+    assert.equal(selectedLayoutState.editMode, "layout");
+    assert.equal(selectedLayoutState.selectedId, titleItemId);
+    assert.deepEqual(selectedLayoutState.selectedIds, [titleItemId]);
+    assert.equal(selectedLayoutState.shadowActiveAction, "");
+
+    const original = await page.evaluate(() => {
+      const title = document.querySelector("#intro-title");
+      const rect = title.getBoundingClientRect();
+      return {
+        left: Math.round(rect.left),
+        top: Math.round(rect.top),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+        transform: title.style.transform
+      };
+    });
+
+    const dragStart = await page.evaluate((itemId) => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      const box = editor.shadow.querySelector(`.box[data-item-id='${CSS.escape(itemId)}']`);
+      if (!box) throw new Error("找不到布局编辑框");
+      const rect = box.getBoundingClientRect();
+      const candidates = [
+        [rect.left + rect.width / 2, rect.top + 3],
+        [rect.left + 3, rect.top + rect.height / 2],
+        [rect.right - 3, rect.top + rect.height / 2],
+        [rect.left + rect.width / 2, rect.bottom - 3],
+        [rect.left + rect.width / 2, rect.top + rect.height / 2]
+      ];
+      const point = candidates.find(([candidateX, candidateY]) => {
+        const candidate = editor.shadow.elementFromPoint(candidateX, candidateY);
+        return candidate?.closest?.(".box") === box && !candidate.closest?.("[data-layout-scale-handle]");
+      }) || candidates.at(-1);
+      const [x, y] = point;
+      const hit = editor.shadow.elementFromPoint(x, y);
+      return {
+        x,
+        y,
+        hitItemId: hit?.closest?.("[data-item-id]")?.getAttribute("data-item-id") || "",
+        hitClass: hit?.className || ""
+      };
+    }, titleItemId);
+    assert.equal(dragStart.hitItemId, titleItemId, JSON.stringify(dragStart));
+    await page.mouse.move(dragStart.x, dragStart.y);
+    await page.mouse.down();
+    assert.equal(
+      await page.evaluate(() => Boolean(window.__htmlSlideMenderBootstrap.editor.layoutDrag)),
+      true,
+      JSON.stringify(dragStart)
+    );
+    await page.mouse.move(dragStart.x + 20, dragStart.y + 12, { steps: 4 });
+    await page.mouse.up();
+    const dragged = await page.evaluate(() => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      const rect = document.querySelector("#intro-title").getBoundingClientRect();
+      return {
+        left: Math.round(rect.left),
+        top: Math.round(rect.top),
+        undoLabel: editor.undoStack.at(-1)?.label
+      };
+    });
+    assert.deepEqual(dragged, {
+      left: original.left + 20,
+      top: original.top + 12,
+      undoLabel: "Move element"
+    });
+
+    await page.keyboard.press("Shift+ArrowRight");
+    await page.keyboard.press("ArrowDown");
+    const moved = await page.evaluate(() => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      const title = document.querySelector("#intro-title");
+      const rect = title.getBoundingClientRect();
+      return {
+        left: Math.round(rect.left),
+        top: Math.round(rect.top),
+        transform: title.style.transform,
+        undoLabel: editor.undoStack.at(-1)?.label
+      };
+    });
+    assert.equal(moved.left, dragged.left + 10);
+    assert.equal(moved.top, dragged.top + 1);
+    assert.notEqual(moved.transform, original.transform);
+    assert.equal(moved.undoLabel, "Move element");
+
+    await page.evaluate(() => window.__htmlSlideMenderBootstrap.editor.shadow
+      .querySelector('[data-action="undo"]')
+      .click());
+    const afterUndo = await page.evaluate(() => {
+      const rect = document.querySelector("#intro-title").getBoundingClientRect();
+      return { left: Math.round(rect.left), top: Math.round(rect.top) };
+    });
+    assert.equal(afterUndo.left, dragged.left + 10);
+    assert.equal(afterUndo.top, dragged.top);
+
+    await page.evaluate(() => window.__htmlSlideMenderBootstrap.editor.shadow
+      .querySelector('[data-action="redo"]')
+      .click());
+    const afterRedo = await page.evaluate(() => {
+      const rect = document.querySelector("#intro-title").getBoundingClientRect();
+      return { left: Math.round(rect.left), top: Math.round(rect.top) };
+    });
+    assert.deepEqual(afterRedo, { left: moved.left, top: moved.top });
+
+    const scaleHandle = await page.evaluate((itemId) => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      const handle = editor.shadow.querySelector(
+        `[data-item-id='${CSS.escape(itemId)}'] [data-layout-scale-handle='se']`
+      );
+      if (!handle) throw new Error("找不到缩放手柄");
+      const rect = handle.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    }, titleItemId);
+    await page.mouse.move(scaleHandle.x, scaleHandle.y);
+    await page.mouse.down();
+    await page.mouse.move(scaleHandle.x + 24, scaleHandle.y + 18, { steps: 4 });
+    await page.mouse.up();
+
+    const scaled = await page.evaluate(() => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      const title = document.querySelector("#intro-title");
+      const rect = title.getBoundingClientRect();
+      return {
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+        transform: title.style.transform,
+        undoLabel: editor.undoStack.at(-1)?.label
+      };
+    });
+    assert.ok(scaled.width > original.width || scaled.height > original.height);
+    assert.equal(scaled.undoLabel, "Scale element");
+
+    await clickBreadcrumb(page, "首页");
+    await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.sceneNavigationStack?.length === 0);
+    const returnedHome = await page.evaluate(() => ({
+      isOriginal: document.querySelector("#intro-title") === window.__layoutTitleReference,
+      parentIsOriginal: document.querySelector("#intro-title")?.parentNode === window.__layoutTitleParent,
+      transform: document.querySelector("#intro-title")?.style.transform,
+      introHidden: document.querySelector("#intro")?.hidden
+    }));
+
+    await clickSceneTreeNode(page, "scene:modal:p001:outer");
+    await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.sceneNavigationStack?.length === 1);
+    const reentered = await page.evaluate(() => {
+      const title = document.querySelector("[data-hsm-scene-content] #intro-title");
+      const rect = title.getBoundingClientRect();
+      return {
+        transform: title.style.transform,
+        width: Math.round(rect.width),
+        height: Math.round(rect.height)
+      };
+    });
+    const serialized = await page.evaluate(async () => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      const html = await editor.serializeCleanHtml("basic");
+      const parsed = new DOMParser().parseFromString(html, "text/html");
+      return {
+        transform: parsed.querySelector("#intro-title")?.style.transform,
+        hasEditor: Boolean(parsed.querySelector("#html-slide-mender-root, [data-hsm-editor], [data-hsm-scene-modal]")),
+        depth: editor.sceneNavigationStack.length
+      };
+    });
+
+    assert.deepEqual(returnedHome, {
+      isOriginal: true,
+      parentIsOriginal: true,
+      transform: scaled.transform,
+      introHidden: true
+    });
+    assert.deepEqual(reentered, {
+      transform: scaled.transform,
+      width: scaled.width,
+      height: scaled.height
+    });
+    assert.deepEqual(serialized, {
+      transform: scaled.transform,
+      hasEditor: false,
+      depth: 0
+    });
+    assert.deepEqual(consoleErrors, []);
+  } finally {
+    await page.close();
+    await browser.close();
+    if (directory) await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("直接点击课件按钮展开内容后替换图片不会放大图片框或内容区", async () => {
   const browser = await launchBrowser();
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
