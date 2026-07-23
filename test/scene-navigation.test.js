@@ -18,7 +18,44 @@ function launchBrowser() {
   });
 }
 
-async function openNestedSceneEditor(page) {
+async function clickBreadcrumb(page, label) {
+  const center = await page.evaluate((text) => {
+    const button = Array.from(document.querySelectorAll("[data-hsm-scene-breadcrumb] button"))
+      .find((candidate) => candidate.textContent?.includes(text));
+    if (!button) throw new Error(`找不到面包屑按钮：${text}`);
+    const rect = button.getBoundingClientRect();
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  }, label);
+  await page.mouse.click(center.x, center.y);
+}
+
+async function clickSceneTreeNode(page, sceneId) {
+  const center = await page.evaluate((id) => {
+    const button = Array.from(document.querySelectorAll("[data-hsm-open-scene]"))
+      .find((candidate) => candidate.getAttribute("data-hsm-open-scene") === id);
+    if (!button) throw new Error(`找不到场景树节点：${id}`);
+    const rect = button.getBoundingClientRect();
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  }, sceneId);
+  await page.mouse.click(center.x, center.y);
+}
+
+async function clickEditorItem(page, itemId) {
+  await page.waitForFunction((id) => {
+    const editor = window.__htmlSlideMenderBootstrap?.editor;
+    return Boolean(editor?.shadow?.querySelector?.(`[data-item-id='${CSS.escape(id)}']`));
+  }, itemId);
+  const center = await page.evaluate((id) => {
+    const editor = window.__htmlSlideMenderBootstrap.editor;
+    const box = editor.shadow.querySelector(`[data-item-id='${CSS.escape(id)}']`);
+    if (!box) throw new Error(`找不到编辑框：${id}`);
+    const rect = box.getBoundingClientRect();
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  }, itemId);
+  await page.mouse.click(center.x, center.y);
+}
+
+async function openNestedSceneEditor(page, { includeImage = false } = {}) {
   const directory = await mkdtemp(join(tmpdir(), "html-mender-scene-navigation-"));
   const sourcePath = join(directory, "index.html");
   const editablePath = join(directory, "index.editable.html");
@@ -30,7 +67,11 @@ async function openNestedSceneEditor(page) {
     .replace('<section id="intro"', '<section id="intro" data-hsm-node-id="course-modal"')
     .replace(
       '<h2 id="intro-title">课程介绍</h2>',
-      '<h2 id="intro-title">课程介绍</h2><label>教师记录<input id="teacher-note" value="初始内容"></label>'
+      '<h2 id="intro-title">课程介绍</h2>'
+        + (includeImage
+          ? '<img id="intro-image" alt="课程示意图" width="120" height="80" style="display:block;width:120px;height:80px" src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%2280%22%3E%3Crect width=%22120%22 height=%2280%22 fill=%22%231d4ed8%22/%3E%3C/svg%3E">'
+          : '')
+        + '<label>教师记录<input id="teacher-note" value="初始内容"></label>'
     );
   await writeFile(sourcePath, source, "utf8");
   await makeEditableHtml({ inputPath: sourcePath, outputPath: editablePath, lang: "zh-CN" });
@@ -202,8 +243,9 @@ test("场景树可进入嵌套真实节点、逐层返回并安全保存", async
       window.__sceneIntroReference = document.querySelector("#intro");
       document.querySelector("#teacher-note").value = "教师已输入";
     });
-    await page.locator('[data-hsm-open-scene="scene:modal:p001:outer"]').click();
-    await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.sceneNavigationStack?.length === 1);
+    await clickSceneTreeNode(page, "scene:modal:p001:outer");
+    await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.sceneNavigationStack?.length === 1
+      && Boolean(document.querySelector("[data-hsm-scene-content] #toggle-tip")));
     const outer = await page.evaluate(() => {
       const editor = window.__htmlSlideMenderBootstrap.editor;
       const content = document.querySelector("[data-hsm-scene-content]");
@@ -222,8 +264,9 @@ test("场景树可进入嵌套真实节点、逐层返回并安全保存", async
       path: ["课程介绍"]
     });
 
-    await page.locator('[data-hsm-open-scene="scene:modal:p001:inner"]').click();
-    await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.sceneNavigationStack?.length === 2);
+    await clickSceneTreeNode(page, "scene:modal:p001:inner");
+    await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.sceneNavigationStack?.length === 2
+      && Boolean(document.querySelector("[data-hsm-scene-content] #confirm-detail")));
     const inner = await page.evaluate(() => {
       const content = document.querySelector("[data-hsm-scene-content]");
       content.querySelector("#confirm-detail").click();
@@ -237,10 +280,10 @@ test("场景树可进入嵌套真实节点、逐层返回并安全保存", async
     assert.equal(inner.originalEventWorked, "已确认");
     assert.match(inner.breadcrumb, /首页.*课程介绍.*任务详情/);
 
-    await page.locator('[data-hsm-scene-breadcrumb] button', { hasText: "课程介绍" }).click();
+    await clickBreadcrumb(page, "课程介绍");
     await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.sceneNavigationStack?.length === 1);
     assert.equal(await page.locator("[data-hsm-scene-content] #teacher-note").inputValue(), "教师已输入");
-    await page.locator('[data-hsm-scene-breadcrumb] button', { hasText: "首页" }).click();
+    await clickBreadcrumb(page, "首页");
     await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.sceneNavigationStack?.length === 0);
     const restored = await page.evaluate(() => ({
       introIsOriginal: document.querySelector("#intro") === window.__sceneIntroReference,
@@ -255,12 +298,12 @@ test("场景树可进入嵌套真实节点、逐层返回并安全保存", async
       inputValue: "教师已输入"
     });
 
-    await page.locator('[data-hsm-open-scene="scene:modal:p001:outer"]').click();
+    await clickSceneTreeNode(page, "scene:modal:p001:outer");
     await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.sceneNavigationStack?.length === 1);
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.sceneNavigationStack?.length === 0);
 
-    await page.locator('[data-hsm-open-scene="scene:modal:p001:inner"]').click();
+    await clickSceneTreeNode(page, "scene:modal:p001:inner");
     await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.sceneNavigationStack?.length === 2);
     const serialized = await page.evaluate(async () => {
       const editor = window.__htmlSlideMenderBootstrap.editor;
@@ -299,7 +342,7 @@ test("场景树进入弹窗后可编辑真实文字，返回并重新进入时�
       }, { capture: true });
     });
 
-    await page.locator('[data-hsm-open-scene="scene:modal:p001:outer"]').click();
+    await clickSceneTreeNode(page, "scene:modal:p001:outer");
     await page.waitForFunction(() => {
       const editor = window.__htmlSlideMenderBootstrap.editor;
       return editor.sceneNavigationStack?.length === 1
@@ -309,15 +352,16 @@ test("场景树进入弹窗后可编辑真实文字，返回并重新进入时�
       .find((item) => item.element?.id === "intro-title")?.id || "");
     assert.notEqual(titleItemId, "");
 
-    await page.locator("#intro-title").click();
+    await clickEditorItem(page, titleItemId);
+    await page.waitForFunction((id) => window.__htmlSlideMenderBootstrap.editor.editingTextId === id, titleItemId);
     assert.equal(
       await page.evaluate(() => window.__htmlSlideMenderBootstrap.editor.editingTextId),
       titleItemId
     );
     await page.locator("#intro-title").fill("课程须知");
-    await page.locator("#toggle-tip").click();
+    await page.evaluate(() => document.querySelector("#toggle-tip").click());
 
-    await page.locator('[data-hsm-scene-breadcrumb] button', { hasText: "首页" }).click();
+    await clickBreadcrumb(page, "首页");
     await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.sceneNavigationStack?.length === 0);
     const returnedHome = await page.evaluate(() => {
       const editor = window.__htmlSlideMenderBootstrap.editor;
@@ -335,7 +379,7 @@ test("场景树进入弹窗后可编辑真实文字，返回并重新进入时�
       };
     });
 
-    await page.locator('[data-hsm-open-scene="scene:modal:p001:outer"]').click();
+    await clickSceneTreeNode(page, "scene:modal:p001:outer");
     await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.sceneNavigationStack?.length === 1);
     const reentered = await page.evaluate(() => ({
       title: document.querySelector("[data-hsm-scene-content] #intro-title")?.textContent,
@@ -362,6 +406,289 @@ test("场景树进入弹窗后可编辑真实文字，返回并重新进入时�
       originalEventRunCount: "1"
     });
     assert.deepEqual(consoleErrors, []);
+  } finally {
+    await page.close();
+    await browser.close();
+    if (directory) await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("场景树进入弹窗后可替换真实普通图片，返回并重新进入时保留修改", async () => {
+  const browser = await launchBrowser();
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const consoleErrors = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => consoleErrors.push(error.message));
+  let directory = "";
+  try {
+    directory = await openNestedSceneEditor(page, { includeImage: true });
+    await page.evaluate(() => {
+      window.__editableIntroImageReference = document.querySelector("#intro-image");
+      window.__editableIntroImageParent = document.querySelector("#intro-image").parentNode;
+      document.querySelector("#teacher-note").value = "教师已输入";
+      document.querySelector("#toggle-tip").addEventListener("click", (event) => {
+        event.currentTarget.dataset.runCount = String(Number(event.currentTarget.dataset.runCount || 0) + 1);
+        event.stopImmediatePropagation();
+      }, { capture: true });
+    });
+
+    await clickSceneTreeNode(page, "scene:modal:p001:outer");
+    const imageItemHandle = await page.waitForFunction(() => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      if (editor.sceneNavigationStack?.length !== 1) return "";
+      const item = Array.from(editor.items.values())
+        .find((candidate) => candidate.type === "image" && candidate.element?.id === "intro-image");
+      const rect = item?.element?.getBoundingClientRect?.();
+      return item?.id && rect?.width > 0 && rect?.height > 0 ? item.id : "";
+    });
+    const imageItemId = await imageItemHandle.jsonValue();
+    assert.notEqual(imageItemId, "");
+    const originalSource = await page.locator("#intro-image").getAttribute("src");
+    const originalGeometry = await page.evaluate(() => {
+      const imageRect = document.querySelector("#intro-image").getBoundingClientRect();
+      const modalRect = document.querySelector("#intro").getBoundingClientRect();
+      return {
+        imageWidth: Math.round(imageRect.width),
+        imageHeight: Math.round(imageRect.height),
+        modalWidth: Math.round(modalRect.width),
+        modalHeight: Math.round(modalRect.height)
+      };
+    });
+
+    await page.locator("#intro-image").click();
+    assert.equal(
+      await page.evaluate(() => window.__htmlSlideMenderBootstrap.editor.selectedId),
+      imageItemId
+    );
+    await page.locator('[data-role="edit-popover"][data-selection="image"] [data-action="image-replace"]').waitFor();
+    const replaceButtonHitTest = await page.evaluate(() => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      const button = editor.shadow.querySelector('[data-action="image-replace"]');
+      const rect = button.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      return {
+        targetInEditor: editor.host === hit || hit?.getRootNode?.() === editor.shadow,
+        hitTag: hit?.tagName || "",
+        hitRole: hit?.getAttribute?.("data-hsm-editor") || "",
+        editorZIndex: editor.host.style.zIndex,
+        sceneZIndex: editor.sceneNavigationHost ? getComputedStyle(editor.sceneNavigationHost).zIndex : "",
+        hostPointerEvents: getComputedStyle(editor.host).pointerEvents,
+        buttonPointerEvents: getComputedStyle(button).pointerEvents
+      };
+    });
+    assert.equal(replaceButtonHitTest.targetInEditor, true, JSON.stringify(replaceButtonHitTest));
+
+    await page.evaluate(() => window.__htmlSlideMenderBootstrap.editor.shadow
+      .querySelector('[data-action="image-replace"]')
+      .click());
+    await page.locator('[data-role="file-input"]').setInputFiles({
+      name: "replacement.png",
+      mimeType: "image/png",
+      buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR42mNkYPj/n4GBgYGJAQoAHgQCAf2f6S8AAAAASUVORK5CYII=", "base64")
+    });
+    await page.waitForFunction(() => document.querySelector("#intro-image")?.getAttribute("src")?.startsWith("data:image/png;base64,"));
+    const replacementSource = await page.locator("#intro-image").getAttribute("src");
+    const replacementGeometry = await page.evaluate(() => {
+      const imageRect = document.querySelector("#intro-image").getBoundingClientRect();
+      const modalRect = document.querySelector("#intro").getBoundingClientRect();
+      return {
+        imageWidth: Math.round(imageRect.width),
+        imageHeight: Math.round(imageRect.height),
+        modalWidth: Math.round(modalRect.width),
+        modalHeight: Math.round(modalRect.height)
+      };
+    });
+    assert.notEqual(replacementSource, originalSource);
+    assert.deepEqual(replacementGeometry, originalGeometry, "替换不同比例图片后应保持原图片框和弹窗尺寸");
+    assert.equal(
+      await page.evaluate(() => window.__htmlSlideMenderBootstrap.editor.undoStack.at(-1)?.label),
+      "Replace image"
+    );
+
+    await page.evaluate(() => window.__htmlSlideMenderBootstrap.editor.undo());
+    await page.waitForFunction((source) => document.querySelector("#intro-image")?.getAttribute("src") === source, originalSource);
+    await page.evaluate(() => window.__htmlSlideMenderBootstrap.editor.redo());
+    await page.waitForFunction((source) => document.querySelector("#intro-image")?.getAttribute("src") === source, replacementSource);
+    await page.evaluate(() => document.querySelector("#toggle-tip").click());
+
+    await page.locator('[data-hsm-scene-breadcrumb] button', { hasText: "首页" }).click();
+    await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.sceneNavigationStack?.length === 0);
+    const returnedHome = await page.evaluate(() => ({
+      imageIsOriginal: document.querySelector("#intro-image") === window.__editableIntroImageReference,
+      parentIsOriginal: document.querySelector("#intro-image")?.parentNode === window.__editableIntroImageParent,
+      source: document.querySelector("#intro-image")?.getAttribute("src"),
+      introHidden: document.querySelector("#intro")?.hidden,
+      inputValue: document.querySelector("#teacher-note")?.value,
+      originalEventRunCount: document.querySelector("#toggle-tip")?.dataset.runCount
+    }));
+
+    await clickSceneTreeNode(page, "scene:modal:p001:outer");
+    await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.sceneNavigationStack?.length === 1);
+    const reentered = await page.evaluate(() => ({
+      source: document.querySelector("[data-hsm-scene-content] #intro-image")?.getAttribute("src"),
+      inputValue: document.querySelector("[data-hsm-scene-content] #teacher-note")?.value,
+      originalEventRunCount: document.querySelector("[data-hsm-scene-content] #toggle-tip")?.dataset.runCount,
+      imageWidth: Math.round(document.querySelector("[data-hsm-scene-content] #intro-image")?.getBoundingClientRect().width || 0),
+      imageHeight: Math.round(document.querySelector("[data-hsm-scene-content] #intro-image")?.getBoundingClientRect().height || 0)
+    }));
+    const serialized = await page.evaluate(async () => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      const html = await editor.serializeCleanHtml("basic");
+      const parsed = new DOMParser().parseFromString(html, "text/html");
+      return {
+        source: parsed.querySelector("#intro-image")?.getAttribute("src"),
+        hasEditor: Boolean(parsed.querySelector("#html-slide-mender-root, [data-hsm-editor]")),
+        depth: editor.sceneNavigationStack.length
+      };
+    });
+
+    assert.deepEqual(returnedHome, {
+      imageIsOriginal: true,
+      parentIsOriginal: true,
+      source: replacementSource,
+      introHidden: true,
+      inputValue: "教师已输入",
+      originalEventRunCount: "1"
+    });
+    assert.deepEqual(reentered, {
+      source: replacementSource,
+      inputValue: "教师已输入",
+      originalEventRunCount: "1",
+      imageWidth: originalGeometry.imageWidth,
+      imageHeight: originalGeometry.imageHeight
+    });
+    assert.deepEqual(serialized, {
+      source: replacementSource,
+      hasEditor: false,
+      depth: 0
+    });
+    assert.deepEqual(consoleErrors, []);
+  } finally {
+    await page.close();
+    await browser.close();
+    if (directory) await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("直接点击课件按钮展开内容后替换图片不会放大图片框或内容区", async () => {
+  const browser = await launchBrowser();
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const consoleErrors = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => consoleErrors.push(error.message));
+  let directory = "";
+  try {
+    directory = await openNestedSceneEditor(page, { includeImage: true });
+    await page.locator("[data-hsm-page-sidebar] .hsm-page-sidebar-close").click();
+    await page.locator("#open-intro").click();
+    await page.waitForFunction(() => {
+      const image = document.querySelector("#intro-image");
+      const item = Array.from(window.__htmlSlideMenderBootstrap.editor.items.values())
+        .find((candidate) => candidate.type === "image" && candidate.element === image);
+      const rect = image?.getBoundingClientRect?.();
+      return item?.id && rect?.width > 0 && rect?.height > 0;
+    });
+
+    const before = await page.evaluate(() => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      const image = document.querySelector("#intro-image");
+      const content = document.querySelector("#intro");
+      const item = Array.from(editor.items.values()).find((candidate) => candidate.element === image);
+      const imageRect = image.getBoundingClientRect();
+      const contentRect = content.getBoundingClientRect();
+      return {
+        source: image.getAttribute("src"),
+        imageWidth: Math.round(imageRect.width),
+        imageHeight: Math.round(imageRect.height),
+        contentWidth: Math.round(contentRect.width),
+        contentHeight: Math.round(contentRect.height),
+        frameIsContent: item?.frameElement === content
+      };
+    });
+
+    await page.evaluate(() => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      const image = document.querySelector("#intro-image");
+      const item = Array.from(editor.items.values()).find((candidate) => candidate.element === image);
+      editor.selectItem(item.id);
+    });
+    await page.evaluate(() => window.__htmlSlideMenderBootstrap.editor.shadow
+      .querySelector('[data-action="image-replace"]')
+      .click());
+    await page.locator('[data-role="file-input"]').setInputFiles({
+      name: "portrait-replacement.png",
+      mimeType: "image/png",
+      buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR42mNkYPj/n4GBgYGJAQoAHgQCAf2f6S8AAAAASUVORK5CYII=", "base64")
+    });
+    await page.waitForFunction(() => document.querySelector("#intro-image")?.getAttribute("src")?.startsWith("data:image/png;base64,"));
+
+    const after = await page.evaluate(() => {
+      const image = document.querySelector("#intro-image");
+      const content = document.querySelector("#intro");
+      const imageRect = image.getBoundingClientRect();
+      const contentRect = content.getBoundingClientRect();
+      return {
+        source: image.getAttribute("src"),
+        imageWidth: Math.round(imageRect.width),
+        imageHeight: Math.round(imageRect.height),
+        contentWidth: Math.round(contentRect.width),
+        contentHeight: Math.round(contentRect.height)
+      };
+    });
+
+    assert.equal(before.frameIsContent, false, "包含标题和按钮的内容区不能被当成图片框");
+    assert.notEqual(after.source, before.source);
+    assert.deepEqual({
+      imageWidth: after.imageWidth,
+      imageHeight: after.imageHeight,
+      contentWidth: after.contentWidth,
+      contentHeight: after.contentHeight
+    }, {
+      imageWidth: before.imageWidth,
+      imageHeight: before.imageHeight,
+      contentWidth: before.contentWidth,
+      contentHeight: before.contentHeight
+    });
+    assert.deepEqual(consoleErrors, []);
+  } finally {
+    await page.close();
+    await browser.close();
+    if (directory) await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("编辑器顶部工具栏为课件保留空间且干净序列化不含临时留白", async () => {
+  const browser = await launchBrowser();
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  let directory = "";
+  try {
+    directory = await openNestedSceneEditor(page);
+    const layout = await page.evaluate(() => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      const toolbarRect = editor.toolbar.getBoundingClientRect();
+      const headingRect = document.querySelector("h1").getBoundingClientRect();
+      return {
+        toolbarBottom: Math.round(toolbarRect.bottom),
+        headingTop: Math.round(headingRect.top),
+        hasSafeArea: Boolean(document.querySelector('[data-hsm-editor="top-safe-area"]'))
+      };
+    });
+    assert.equal(layout.hasSafeArea, true);
+    assert.ok(layout.headingTop >= layout.toolbarBottom + 8, JSON.stringify(layout));
+
+    const serialized = await page.evaluate(async () => {
+      const html = await window.__htmlSlideMenderBootstrap.editor.serializeCleanHtml("basic");
+      const parsed = new DOMParser().parseFromString(html, "text/html");
+      return {
+        hasSafeArea: Boolean(parsed.querySelector('[data-hsm-editor="top-safe-area"]')),
+        hasSafeAreaText: html.includes("--hsm-editor-top-safe-area")
+      };
+    });
+    assert.deepEqual(serialized, { hasSafeArea: false, hasSafeAreaText: false });
   } finally {
     await page.close();
     await browser.close();
@@ -477,7 +804,7 @@ test("场景目标缺失时保持当前页面并给出人话提示", async () =>
   try {
     directory = await openNestedSceneEditor(page);
     await page.evaluate(() => document.querySelector("#detail").remove());
-    await page.locator('[data-hsm-open-scene="scene:modal:p001:inner"]').click();
+    await clickSceneTreeNode(page, "scene:modal:p001:inner");
     await page.waitForFunction(() => document.querySelector("[data-hsm-scene-message]")?.textContent.length > 0);
     assert.equal(
       await page.locator("[data-hsm-scene-message]").textContent(),
@@ -502,7 +829,7 @@ test("场景目标重复时不猜测目标也不改变当前画面", async () =>
       const duplicate = document.querySelector("#detail").cloneNode(true);
       document.body.append(duplicate);
     });
-    await page.locator('[data-hsm-open-scene="scene:modal:p001:inner"]').click();
+    await clickSceneTreeNode(page, "scene:modal:p001:inner");
     await page.waitForFunction(() => document.querySelector("[data-hsm-scene-message]")?.textContent.length > 0);
     assert.equal(
       await page.locator("[data-hsm-scene-message]").textContent(),

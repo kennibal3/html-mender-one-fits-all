@@ -168,7 +168,7 @@
 (() => {
   const ns = window.HtmlSlideMenderExtension = window.HtmlSlideMenderExtension || {};
   const MESSAGE_NAMESPACE = "HTML_SLIDE_MENDER";
-  const EDITOR_BUILD_ID = "2026-07-20-deep-modal-text-v1";
+  const EDITOR_BUILD_ID = "2026-07-22-deep-modal-image-frame-v3";
   const ROOT_ID = "html-slide-mender-root";
   const INTERACTION_NODE_ATTRIBUTE = "data-hsm-node-id";
   const TEXT_SELECTOR = [
@@ -2509,6 +2509,10 @@
       box-shadow: 0 0 0 3px rgba(31, 111, 255, 0.14);
     }
 
+    .box.is-native-control {
+      pointer-events: none;
+    }
+
     .shell[data-interaction-mode="true"] .box {
       border-color: transparent;
       background: transparent;
@@ -2903,6 +2907,7 @@ async start() {
       this.loadInteractionManifest?.();
       this.active = true;
       this.installUi();
+      this.installTopSafeArea();
       this.installEvents();
       this.runStartupScans();
       this.toast(this.t("editingCurrentView"));
@@ -2926,6 +2931,7 @@ async exit() {
       this.savedTextRange = null;
       this.items.clear();
       this.removeEvents();
+      this.removeTopSafeArea();
       this.removeUi();
 
       return { ok: true, message: this.t("exited") };
@@ -2969,6 +2975,7 @@ async setLanguage(language) {
       if (this.active) {
         this.removeUi();
         this.installUi();
+        this.installTopSafeArea();
         this.renderBoxes();
         this.refreshToolbar();
         this.toast(this.t("languageSet"));
@@ -3671,9 +3678,14 @@ handleSceneContentClick(event) {
         return;
       }
 
-      const item = Array.from(this.items.values()).find((candidate) =>
-        candidate.type === "text" && this.eventTargetsItem(target, candidate)
-      );
+      const item = Array.from(this.items.values()).find((candidate) => {
+        if (candidate.type === "text") {
+          return this.eventTargetsItem(target, candidate);
+        }
+        return candidate.type === "image"
+          && candidate.imageMode === "img"
+          && candidate.element === target;
+      });
       if (!item) {
         return;
       }
@@ -3682,7 +3694,9 @@ handleSceneContentClick(event) {
       event.stopImmediatePropagation();
       this.closeOpenMenus();
       this.selectItem(item.id);
-      this.enterTextEdit(item, event);
+      if (item.type === "text") {
+        this.enterTextEdit(item, event);
+      }
     },
 
 eventTargetsItem(target, item) {
@@ -4118,6 +4132,35 @@ async rememberColor(value) {
   const { EDITOR_CSS } = ns.ui;
 
   ns.mixins.ui = {
+installTopSafeArea() {
+      this.removeTopSafeArea();
+      if (!document.body || !this.toolbar) {
+        return;
+      }
+
+      const toolbarRect = this.toolbar.getBoundingClientRect();
+      const firstContent = Array.from(document.body.children).find((element) => {
+        if (element.matches?.("[data-hsm-editor], [data-hsm-version-save], [data-hsm-project-toolbar]")) {
+          return false;
+        }
+        const rect = element.getBoundingClientRect?.();
+        return rect && isVisibleRect(rect, 1, 1);
+      });
+      const contentTop = firstContent?.getBoundingClientRect?.().top ?? 0;
+      const safeBottom = Math.ceil(toolbarRect.bottom + 10);
+      const height = Math.max(0, Math.ceil(safeBottom - contentTop));
+      const style = document.createElement("style");
+      style.setAttribute("data-hsm-editor", "top-safe-area");
+      style.textContent = `body::before { content: ""; display: block; width: 100%; height: ${height}px; pointer-events: none; }`;
+      document.head?.append(style);
+      this.topSafeAreaStyle = style;
+    },
+
+removeTopSafeArea() {
+      this.topSafeAreaStyle?.remove();
+      this.topSafeAreaStyle = null;
+    },
+
 installUi() {
       const existing = document.getElementById(ROOT_ID);
       if (existing) {
@@ -4158,6 +4201,7 @@ installUi() {
 
 removeUi() {
       this.finishLayoutMarquee?.(true);
+      this.removeTopSafeArea?.();
       this.host?.remove();
       this.host = null;
       this.shadow = null;
@@ -4667,6 +4711,9 @@ isWrapperOnlyTextBox(element) {
 boxTemplate(item, rect, selected, editing, overflow) {
       const layoutMode = this.isLayoutMode?.() || item.type === "layout";
       const interactionMode = this.isInteractionSelectionMode?.() || false;
+      const nativeControl = !layoutMode && !interactionMode && Boolean(
+        item.element?.closest?.("button,a[href],input,textarea,select,summary,[role='button'],[role='link'],[onclick]")
+      );
       const interactionNodeId = item.element?.getAttribute?.(INTERACTION_NODE_ATTRIBUTE) || "";
       const isInteractionTrigger = interactionMode && interactionNodeId === this.pendingInteractionTriggerNodeId;
       const isInteractionTarget = interactionMode && interactionNodeId === this.interactionWizardTargetNodeId;
@@ -4697,6 +4744,7 @@ boxTemplate(item, rect, selected, editing, overflow) {
         locked ? "is-locked" : "",
         isInteractionTrigger ? "is-interaction-trigger" : "",
         isInteractionTarget ? "is-interaction-target" : "",
+        nativeControl ? "is-native-control" : "",
         selected ? "is-selected" : "",
         selected && item.id === this.selectedId ? "is-primary" : "",
         editing ? "is-editing" : "",
@@ -5036,6 +5084,14 @@ refreshExportModeControl() {
         return;
       }
 
+      if (this.sceneNavigationHost) {
+        if (item?.type === "image" && this.sceneNavigationStack?.length) {
+          this.sceneNavigationHost.style.zIndex = "2147483644";
+        } else {
+          this.sceneNavigationHost.style.removeProperty("z-index");
+        }
+      }
+
       if (this.isInteractionSelectionMode?.()) {
         this.editPopover.hidden = true;
         delete this.editPopover.dataset.itemId;
@@ -5094,7 +5150,12 @@ refreshExportModeControl() {
       const top = clamp(rawTop, safeTop, maxTop);
       const rawLeft = rect.left + rect.width / 2 - popoverRect.width / 2;
       const maxLeft = Math.max(margin, viewportWidth - popoverRect.width - margin);
-      const left = clamp(rawLeft, margin, maxLeft);
+      const pageSidebar = document.querySelector("[data-hsm-page-sidebar][data-open='true']");
+      const pageSidebarRect = pageSidebar?.getBoundingClientRect?.();
+      const safeLeft = pageSidebarRect && isVisibleRect(pageSidebarRect, 4, 4)
+        ? Math.min(maxLeft, pageSidebarRect.right + gap)
+        : margin;
+      const left = clamp(rawLeft, safeLeft, maxLeft);
 
       this.editPopover.dataset.placement = placement;
       this.editPopover.style.left = `${round(left)}px`;
@@ -5514,7 +5575,11 @@ findImageItems() {
       return items;
     },
 
-frameElementForImage(image) {
+    frameElementForImage(image) {
+      if (image.closest?.("[data-hsm-scene-content]")) {
+        return image;
+      }
+
       const parent = image.parentElement;
       if (!parent || parent === document.body || parent === document.documentElement) {
         return image;
@@ -5522,7 +5587,10 @@ frameElementForImage(image) {
 
       const parentRect = parent.getBoundingClientRect();
       const imageRect = image.getBoundingClientRect();
+      const parentOnlyFramesImage = parent.tagName === "PICTURE" || Array.from(parent.children)
+        .every((child) => child === image || child.tagName === "SOURCE");
       const parentUsable = isVisibleRect(parentRect, 24, 24) &&
+        parentOnlyFramesImage &&
         parentRect.width >= imageRect.width * 0.45 &&
         parentRect.height >= imageRect.height * 0.45;
       return parentUsable ? parent : image;
@@ -6458,6 +6526,9 @@ prepareImageContainer(item, frameSize = null) {
       }
 
       const size = frameSize || this.lockImageFrame(item);
+      if (item.frameElement === item.element) {
+        return;
+      }
       this.lockImageContent(item, size);
     },
 
@@ -6493,6 +6564,10 @@ ensureImageFrame(item) {
       }
 
       const image = item.element;
+      if (image.closest?.("[data-hsm-scene-content]")) {
+        item.frameElement = image;
+        return;
+      }
       if (item.frameElement && item.frameElement !== image) {
         return;
       }
@@ -10647,6 +10722,9 @@ exitScenesToDepth(depth = 0, options = {}) {
       if (!options.silent) {
         this.dispatchSceneNavigation();
         this.scheduleScan?.(0);
+      }
+      if (!this.sceneNavigationStack.length) {
+        host?.style.removeProperty("z-index");
       }
       return true;
     },
