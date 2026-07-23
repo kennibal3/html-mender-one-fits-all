@@ -49,6 +49,22 @@ test("editor runtime exposes PPT-like element editing controls", async () => {
   assert.match(runtime, /boxShadow/);
 });
 
+test("undo and redo use clear arrow symbols with accessible labels", async () => {
+  const runtime = await readFile(
+    new URL("../vendor/html-slide-mender/assets/html-slide-mender-runtime.js", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(
+    runtime,
+    /data-action="undo"[^>]*title="\$\{escapeAttr\(this\.t\("undo"\)\)\}"[^>]*aria-label="\$\{escapeAttr\(this\.t\("undo"\)\)\}"[^>]*>↶<\/button>/
+  );
+  assert.match(
+    runtime,
+    /data-action="redo"[^>]*title="\$\{escapeAttr\(this\.t\("redo"\)\)\}"[^>]*aria-label="\$\{escapeAttr\(this\.t\("redo"\)\)\}"[^>]*>↷<\/button>/
+  );
+});
+
 test("editor runtime exposes a complete click-to-toggle interaction workflow", async () => {
   const runtime = await readFile(
     new URL("../vendor/html-slide-mender/assets/html-slide-mender-runtime.js", import.meta.url),
@@ -92,7 +108,7 @@ test("interaction editing uses a guided mode that locks unrelated page tools", a
     "utf8"
   );
 
-  assert.match(runtime, /2026-07-22-deep-modal-image-frame-v3/);
+  assert.match(runtime, /2026-07-23-deep-modal-single-layout-v1/);
   assert.match(runtime, /data-role="interaction-home"/);
   assert.match(runtime, /data-action="begin-click-interaction"/);
   assert.match(runtime, /data-action="begin-sequence-interaction"/);
@@ -142,7 +158,7 @@ test("completed interactions enter a live preview that can return to editing", a
     "utf8"
   );
 
-  assert.match(runtime, /2026-07-22-deep-modal-image-frame-v3/);
+  assert.match(runtime, /2026-07-23-deep-modal-single-layout-v1/);
   assert.match(runtime, /data-interaction-preview="false"/);
   assert.match(runtime, /data-role="interaction-preview-toolbar"/);
   assert.match(runtime, /data-action="stop-interaction-preview"/);
@@ -212,7 +228,7 @@ test("editor runtime exposes page jump, modal, and reveal animation workflows", 
   assert.match(runtime, /goToPage/);
   assert.match(runtime, /openModal/);
   assert.match(runtime, /effect:/);
-  assert.match(runtime, /2026-07-22-deep-modal-image-frame-v3/);
+  assert.match(runtime, /2026-07-23-deep-modal-single-layout-v1/);
 
   assert.match(interactionRuntime, /navigateToPage\(/);
   assert.match(interactionRuntime, /openInteractionModal\(/);
@@ -283,7 +299,7 @@ test("editor runtime exposes audio, media playback settings, and safe URL links"
     "utf8"
   );
 
-  assert.match(runtime, /2026-07-22-deep-modal-image-frame-v3/);
+  assert.match(runtime, /2026-07-23-deep-modal-single-layout-v1/);
   assert.match(runtime, /audio\/mpeg/);
   assert.match(runtime, /audio\/wav/);
   assert.match(runtime, /audio\/ogg/);
