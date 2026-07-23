@@ -43,11 +43,11 @@ async function clickSceneTreeNode(page, sceneId) {
 async function clickEditorItem(page, itemId) {
   await page.waitForFunction((id) => {
     const editor = window.__htmlSlideMenderBootstrap?.editor;
-    return Boolean(editor?.shadow?.querySelector?.(`[data-item-id='${CSS.escape(id)}']`));
+    return Boolean(editor?.shadow?.querySelector?.(`.box[data-item-id='${CSS.escape(id)}']`));
   }, itemId);
   const center = await page.evaluate((id) => {
     const editor = window.__htmlSlideMenderBootstrap.editor;
-    const box = editor.shadow.querySelector(`[data-item-id='${CSS.escape(id)}']`);
+    const box = editor.shadow.querySelector(`.box[data-item-id='${CSS.escape(id)}']`);
     if (!box) throw new Error(`找不到编辑框：${id}`);
     const rect = box.getBoundingClientRect();
     return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
@@ -565,6 +565,249 @@ test("场景树进入弹窗后可替换真实普通图片，返回并重新进�
       depth: 0
     });
     assert.deepEqual(consoleErrors, []);
+  } finally {
+    await page.close();
+    await browser.close();
+    if (directory) await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("弹窗内可用真实界面配置 A1 切换显示并预览，返回重进仍保留", async () => {
+  const browser = await launchBrowser();
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const consoleErrors = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => consoleErrors.push(error.message));
+  let directory = "";
+  try {
+    directory = await openNestedSceneEditor(page);
+    await page.evaluate(() => {
+      window.__a1TriggerReference = document.querySelector("#toggle-tip");
+      window.__a1TargetReference = document.querySelector("#intro-title");
+      window.__a1TargetParent = document.querySelector("#intro-title").parentNode;
+    });
+    await clickSceneTreeNode(page, "scene:modal:p001:outer");
+    await page.evaluate(() => window.__htmlSlideMenderBootstrap.editor.shadow
+      .querySelector('[data-action="toggle-interactions"]')
+      .click());
+    await page.evaluate(() => window.__htmlSlideMenderBootstrap.editor.shadow
+      .querySelector('[data-action="begin-click-interaction"]')
+      .click());
+    await page.evaluate(() => window.__htmlSlideMenderBootstrap.editor.shadow
+      .querySelector('[data-interaction-choice="toggleVisibility"]')
+      .click());
+
+    const triggerGuidance = await page.evaluate(() => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      const guidance = editor.shadow.querySelector('[data-role="interaction-guidance"]');
+      const boxes = Array.from(editor.shadow.querySelectorAll(".box"));
+      return {
+        visible: Boolean(guidance && !guidance.hidden),
+        text: guidance?.textContent || "",
+        selectionStep: editor.shell.dataset.interactionSelectionStep || "",
+        boxCount: boxes.length,
+        controlCandidateCount: boxes.filter((box) => box.classList.contains("is-interaction-control")).length,
+        incorrectlySelectedCount: boxes.filter((box) => box.classList.contains("is-interaction-trigger")).length
+      };
+    });
+    assert.equal(triggerGuidance.visible, true);
+    assert.match(triggerGuidance.text, /现在.*点击.*触发按钮/);
+    assert.equal(triggerGuidance.selectionStep, "2");
+    assert.ok(triggerGuidance.controlCandidateCount > 0);
+    assert.ok(triggerGuidance.controlCandidateCount < triggerGuidance.boxCount);
+    assert.equal(triggerGuidance.incorrectlySelectedCount, 0);
+
+    const triggerItemId = await page.evaluate(() => Array.from(
+      window.__htmlSlideMenderBootstrap.editor.items.values()
+    ).find((item) => item.element?.id === "toggle-tip")?.id || "");
+    assert.notEqual(triggerItemId, "");
+    await clickEditorItem(page, triggerItemId);
+    const triggerSelection = await page.evaluate(() => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      return {
+        step: editor.interactionWizardStep,
+        triggerId: editor.pendingInteractionTriggerNodeId,
+        originalTipHidden: document.querySelector("#learning-tip").hidden
+      };
+    });
+    assert.equal(triggerSelection.step, 3);
+    assert.notEqual(triggerSelection.triggerId, "");
+    assert.equal(triggerSelection.originalTipHidden, true, "配置时不应误触发课件原按钮");
+    const targetGuidance = await page.evaluate(() => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      const guidance = editor.shadow.querySelector('[data-role="interaction-guidance"]');
+      const boxes = Array.from(editor.shadow.querySelectorAll(".box"));
+      return {
+        visible: Boolean(guidance && !guidance.hidden),
+        text: guidance?.textContent || "",
+        selectionStep: editor.shell.dataset.interactionSelectionStep || "",
+        boxCount: boxes.length,
+        primaryTargetCount: boxes.filter((box) => box.classList.contains("is-interaction-primary-target")).length,
+        incorrectlySelectedCount: boxes.filter((box) => box.classList.contains("is-interaction-target")).length
+      };
+    });
+    assert.equal(targetGuidance.visible, true);
+    assert.match(targetGuidance.text, /已选中.*现在.*点击.*内容/);
+    assert.equal(targetGuidance.selectionStep, "3");
+    assert.ok(targetGuidance.primaryTargetCount < targetGuidance.boxCount);
+    assert.equal(targetGuidance.incorrectlySelectedCount, 0);
+
+    const targetItemId = await page.evaluate(() => Array.from(
+      window.__htmlSlideMenderBootstrap.editor.items.values()
+    ).find((item) => item.element?.id === "intro-title")?.id || "");
+    assert.notEqual(targetItemId, "");
+    await clickEditorItem(page, targetItemId);
+    const targetSelection = await page.evaluate(() => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      return {
+        step: editor.interactionWizardStep,
+        targetId: editor.interactionWizardTargetNodeId,
+        triggerId: editor.pendingInteractionTriggerNodeId
+      };
+    });
+    assert.equal(targetSelection.step, 4);
+    assert.notEqual(targetSelection.targetId, "");
+    assert.notEqual(targetSelection.targetId, targetSelection.triggerId);
+    const completedSelectionGuidance = await page.evaluate(() => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      const guidance = editor.shadow.querySelector('[data-role="interaction-guidance"]');
+      return {
+        hidden: guidance?.hidden,
+        toast: editor.toastEl?.textContent || "",
+        selectionStep: editor.shell.dataset.interactionSelectionStep || ""
+      };
+    });
+    assert.equal(completedSelectionGuidance.hidden, true);
+    assert.match(completedSelectionGuidance.toast, /触发按钮和目标内容已选好/);
+    assert.equal(completedSelectionGuidance.selectionStep, "0");
+
+    await page.evaluate(() => window.__htmlSlideMenderBootstrap.editor.shadow
+      .querySelector('[data-action="interaction-wizard-complete"]')
+      .click());
+    await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.interactionPreviewActive === true);
+    assert.equal(await page.locator("#intro-title").isHidden(), true);
+    await page.locator("#toggle-tip").click();
+    assert.equal(await page.locator("#intro-title").isVisible(), true);
+    assert.equal(await page.locator("#learning-tip").getAttribute("hidden"), "");
+
+    await page.evaluate(() => window.__htmlSlideMenderBootstrap.editor.shadow
+      .querySelector('[data-action="stop-interaction-preview"]')
+      .click());
+    await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.interactionPreviewActive === false);
+    assert.equal(await page.locator("#intro-title").isVisible(), true);
+
+    await clickBreadcrumb(page, "首页");
+    await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.sceneNavigationStack?.length === 0);
+    const returnedHome = await page.evaluate(() => ({
+      triggerIsOriginal: document.querySelector("#toggle-tip") === window.__a1TriggerReference,
+      targetIsOriginal: document.querySelector("#intro-title") === window.__a1TargetReference,
+      targetParentIsOriginal: document.querySelector("#intro-title")?.parentNode === window.__a1TargetParent,
+      introHidden: document.querySelector("#intro")?.hidden,
+      interactionCount: window.__htmlSlideMenderBootstrap.editor.interactions.length
+    }));
+
+    await clickSceneTreeNode(page, "scene:modal:p001:outer");
+    await page.waitForFunction(() => window.__htmlSlideMenderBootstrap.editor.sceneNavigationStack?.length === 1);
+    const reentered = await page.evaluate(async () => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      const html = await editor.serializeCleanHtml("basic");
+      const parsed = new DOMParser().parseFromString(html, "text/html");
+      const manifest = JSON.parse(parsed.querySelector("script[data-hsm-interaction-manifest]")?.textContent || "{}");
+      return {
+        interactionCount: editor.interactions.length,
+        triggerIsOriginal: document.querySelector("#toggle-tip") === window.__a1TriggerReference,
+        targetIsOriginal: document.querySelector("#intro-title") === window.__a1TargetReference,
+        actionType: manifest.interactions?.[0]?.action?.type,
+        targetId: manifest.interactions?.[0]?.action?.targetId || "",
+        hasSceneShell: Boolean(parsed.querySelector("[data-hsm-scene-modal], [data-hsm-scene-content]")),
+        depth: editor.sceneNavigationStack.length
+      };
+    });
+
+    assert.deepEqual(returnedHome, {
+      triggerIsOriginal: true,
+      targetIsOriginal: true,
+      targetParentIsOriginal: true,
+      introHidden: true,
+      interactionCount: 1
+    });
+    assert.deepEqual(reentered, {
+      interactionCount: 1,
+      triggerIsOriginal: true,
+      targetIsOriginal: true,
+      actionType: "toggleVisibility",
+      targetId: targetSelection.targetId,
+      hasSceneShell: false,
+      depth: 0
+    });
+    assert.deepEqual(consoleErrors, []);
+  } finally {
+    await page.close();
+    await browser.close();
+    if (directory) await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("弹窗内 A1 显示、隐藏、切换三种预览均生效且退出后恢复", async () => {
+  const browser = await launchBrowser();
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  let directory = "";
+  try {
+    directory = await openNestedSceneEditor(page);
+    await clickSceneTreeNode(page, "scene:modal:p001:outer");
+    const result = await page.evaluate(() => {
+      const editor = window.__htmlSlideMenderBootstrap.editor;
+      const triggerId = editor.ensureInteractionElementId(document.querySelector("#toggle-tip"));
+      const cases = [
+        { key: "show", type: "showVisibility", target: document.querySelector("#learning-tip"), initial: "hidden" },
+        { key: "hide", type: "hideVisibility", target: document.querySelector("#intro-title"), initial: "visible" },
+        { key: "toggle", type: "toggleVisibility", target: document.querySelector("#teacher-note"), initial: "hidden" }
+      ];
+      const output = {};
+      editor.enterInteractionMode();
+      for (const current of cases) {
+        const beforeHidden = current.target.hidden;
+        const beforeStyle = current.target.getAttribute("style");
+        editor.interactions = [{
+          id: `deep-a1-${current.key}`,
+          name: current.key,
+          trigger: { event: "click", nodeId: triggerId },
+          action: { type: current.type, targetId: editor.ensureInteractionElementId(current.target) },
+          initialState: { target: current.initial },
+          effect: { type: "none", duration: 400 },
+          record: { type: "interaction.activated" }
+        }];
+        editor.startInteractionPreview();
+        const initialDisplay = getComputedStyle(current.target).display;
+        editor.activateInteractionPreview(editor.interactions[0]);
+        const afterDisplay = getComputedStyle(current.target).display;
+        editor.stopInteractionPreview({ silent: true });
+        output[current.key] = {
+          initialDisplay,
+          afterDisplay,
+          restoredHidden: current.target.hidden,
+          restoredStyle: current.target.getAttribute("style"),
+          beforeHidden,
+          beforeStyle,
+          sceneDepth: editor.sceneNavigationStack.length
+        };
+      }
+      return output;
+    });
+
+    assert.equal(result.show.initialDisplay, "none");
+    assert.notEqual(result.show.afterDisplay, "none");
+    assert.notEqual(result.hide.initialDisplay, "none");
+    assert.equal(result.hide.afterDisplay, "none");
+    assert.equal(result.toggle.initialDisplay, "none");
+    assert.notEqual(result.toggle.afterDisplay, "none");
+    for (const actionResult of Object.values(result)) {
+      assert.equal(actionResult.restoredHidden, actionResult.beforeHidden);
+      assert.equal(actionResult.restoredStyle || "", actionResult.beforeStyle || "");
+      assert.equal(actionResult.sceneDepth, 1);
+    }
   } finally {
     await page.close();
     await browser.close();

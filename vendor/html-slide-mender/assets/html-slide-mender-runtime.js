@@ -168,7 +168,7 @@
 (() => {
   const ns = window.HtmlSlideMenderExtension = window.HtmlSlideMenderExtension || {};
   const MESSAGE_NAMESPACE = "HTML_SLIDE_MENDER";
-  const EDITOR_BUILD_ID = "2026-07-23-deep-modal-single-layout-v1";
+  const EDITOR_BUILD_ID = "2026-07-23-deep-modal-a1-session-v4";
   const ROOT_ID = "html-slide-mender-root";
   const INTERACTION_NODE_ATTRIBUTE = "data-hsm-node-id";
   const TEXT_SELECTOR = [
@@ -373,6 +373,13 @@
       interactionPickTriggerHelp: "请在页面中点击老师或学生将要点击的文字、图片或按钮。",
       interactionPickTargetTitle: "点击需要显示的内容",
       interactionPickTargetHelp: "请在页面中点击答案、提示、图片或需要弹出的内容。",
+      interactionGuidanceTriggerTitle: "现在请点击课件中的触发按钮",
+      interactionGuidanceTriggerHelp: "蓝色边框是推荐的按钮或链接；其他文字和图片移入鼠标后也可以选择。",
+      interactionGuidanceTargetTitle: "触发按钮已选中，现在请点击目标内容",
+      interactionGuidanceTargetHelp: "橙色边框是推荐的内容；其他文字和图片移入鼠标后也可以选择。",
+      interactionGuidanceTriggerToast: "已选择互动效果。下一步：请点击课件中的触发按钮。",
+      interactionGuidanceTargetToast: "触发按钮已选中。下一步：请点击要显示或隐藏的内容。",
+      interactionGuidanceCompleteToast: "触发按钮和目标内容已选好，请确认互动关系。",
       interactionChoosePageTitle: "选择要跳转的页面",
       interactionEnterUrlTitle: "填写要打开的链接",
       interactionReviewTitle: "确认互动关系",
@@ -630,6 +637,13 @@
       interactionPickTriggerHelp: "Click the text, image, or button that starts the interaction.",
       interactionPickTargetTitle: "Select what should appear",
       interactionPickTargetHelp: "Click the answer, hint, image, or pop-up content.",
+      interactionGuidanceTriggerTitle: "Now click the trigger in the lesson",
+      interactionGuidanceTriggerHelp: "Blue outlines mark recommended controls. Hover other text or images to select them.",
+      interactionGuidanceTargetTitle: "Trigger selected. Now click the target content",
+      interactionGuidanceTargetHelp: "Orange outlines mark recommended content. Hover other text or images to select them.",
+      interactionGuidanceTriggerToast: "Effect selected. Next, click the trigger in the lesson.",
+      interactionGuidanceTargetToast: "Trigger selected. Next, click the content to show or hide.",
+      interactionGuidanceCompleteToast: "Trigger and target selected. Review the interaction.",
       interactionChoosePageTitle: "Choose the destination page",
       interactionEnterUrlTitle: "Enter the destination link",
       interactionReviewTitle: "Review the interaction",
@@ -1251,6 +1265,61 @@
 
     .interaction-panel[hidden] {
       display: none;
+    }
+
+    .interaction-guidance {
+      position: fixed;
+      top: 84px;
+      left: 50%;
+      z-index: 6;
+      width: min(620px, calc(100vw - 430px));
+      min-width: 320px;
+      padding: 14px 18px;
+      border: 2px solid #1f6fff;
+      border-radius: 12px;
+      background: rgba(239, 246, 255, 0.98);
+      color: #173b69;
+      box-shadow: 0 16px 42px rgba(15, 64, 120, 0.24);
+      pointer-events: none;
+      text-align: center;
+      transform: translateX(-50%);
+    }
+
+    .interaction-guidance[data-step="3"] {
+      border-color: #ea7c18;
+      background: rgba(255, 247, 237, 0.98);
+      color: #7c3c08;
+    }
+
+    .interaction-guidance[hidden] {
+      display: none;
+    }
+
+    .interaction-guidance strong,
+    .interaction-guidance span {
+      display: block;
+    }
+
+    .interaction-guidance strong {
+      font-size: 16px;
+      line-height: 1.35;
+    }
+
+    .interaction-guidance span {
+      margin-top: 4px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 820px) {
+      .interaction-guidance {
+        top: 72px;
+        left: 16px;
+        right: 16px;
+        width: auto;
+        min-width: 0;
+        transform: none;
+      }
     }
 
     .interaction-panel-head,
@@ -2525,6 +2594,40 @@
       border-color: #1f6fff;
       background: rgba(31, 111, 255, 0.045);
       box-shadow: 0 0 0 3px rgba(31, 111, 255, 0.14);
+    }
+
+    .shell[data-interaction-selection-step="2"] .box,
+    .shell[data-interaction-selection-step="3"] .box {
+      border-color: transparent;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .shell[data-interaction-selection-step="2"] .box.is-interaction-control {
+      border-style: solid;
+      border-color: rgba(31, 111, 255, 0.78);
+      background: rgba(31, 111, 255, 0.035);
+      box-shadow: 0 0 0 2px rgba(31, 111, 255, 0.1);
+    }
+
+    .shell[data-interaction-selection-step="3"] .box.is-interaction-primary-target {
+      border-style: dashed;
+      border-color: rgba(234, 124, 24, 0.72);
+      background: rgba(234, 124, 24, 0.025);
+    }
+
+    .shell[data-interaction-selection-step="2"] .box:hover {
+      border-style: solid;
+      border-color: #1f6fff;
+      background: rgba(31, 111, 255, 0.045);
+      box-shadow: 0 0 0 3px rgba(31, 111, 255, 0.14);
+    }
+
+    .shell[data-interaction-selection-step="3"] .box:hover {
+      border-style: solid;
+      border-color: #ea7c18;
+      background: rgba(234, 124, 24, 0.055);
+      box-shadow: 0 0 0 3px rgba(234, 124, 24, 0.14);
     }
 
     .shell[data-interaction-mode="true"] .box.is-interaction-trigger {
@@ -4740,9 +4843,15 @@ boxTemplate(item, rect, selected, editing, overflow) {
       const nativeControl = !layoutMode && !interactionMode && Boolean(
         item.element?.closest?.("button,a[href],input,textarea,select,summary,[role='button'],[role='link'],[onclick]")
       );
+      const interactionControl = interactionMode && Boolean(
+        item.element?.matches?.("button,a[href],input,textarea,select,summary,[role='button'],[role='link'],[onclick]")
+      );
+      const interactionPrimaryTarget = interactionMode && Boolean(
+        item.type === "image" || item.element?.matches?.("p,li,blockquote,figure,picture,video,audio,[data-hsm-added]")
+      );
       const interactionNodeId = item.element?.getAttribute?.(INTERACTION_NODE_ATTRIBUTE) || "";
-      const isInteractionTrigger = interactionMode && interactionNodeId === this.pendingInteractionTriggerNodeId;
-      const isInteractionTarget = interactionMode && interactionNodeId === this.interactionWizardTargetNodeId;
+      const isInteractionTrigger = interactionMode && Boolean(interactionNodeId) && interactionNodeId === this.pendingInteractionTriggerNodeId;
+      const isInteractionTarget = interactionMode && Boolean(interactionNodeId) && interactionNodeId === this.interactionWizardTargetNodeId;
       const selectedLayoutCount = layoutMode && selected
         ? (this.selectedLayoutItemsFor?.(item).length || 1)
         : 0;
@@ -4770,6 +4879,8 @@ boxTemplate(item, rect, selected, editing, overflow) {
         locked ? "is-locked" : "",
         isInteractionTrigger ? "is-interaction-trigger" : "",
         isInteractionTarget ? "is-interaction-target" : "",
+        interactionControl ? "is-interaction-control" : "",
+        interactionPrimaryTarget ? "is-interaction-primary-target" : "",
         nativeControl ? "is-native-control" : "",
         selected ? "is-selected" : "",
         selected && item.id === this.selectedId ? "is-primary" : "",
@@ -5111,7 +5222,7 @@ refreshExportModeControl() {
       }
 
       if (this.sceneNavigationHost) {
-        if ((item?.type === "image" || this.isLayoutMode?.()) && this.sceneNavigationStack?.length) {
+        if ((item?.type === "image" || this.isLayoutMode?.() || this.isInteractionSelectionMode?.()) && this.sceneNavigationStack?.length) {
           this.sceneNavigationHost.style.zIndex = "2147483644";
         } else {
           this.sceneNavigationHost.style.removeProperty("z-index");
@@ -5256,7 +5367,7 @@ toast(message) {
 template() {
       return `
         <style>${EDITOR_CSS}</style>
-        <div class="shell" data-role="shell" data-interaction-mode="false" data-interaction-preview="false">
+        <div class="shell" data-role="shell" data-interaction-mode="false" data-interaction-preview="false" data-interaction-selection-step="0">
         <div class="toolbar" data-role="toolbar">
           <button class="collapse" type="button" data-action="collapse" title="${escapeAttr(this.t("collapseTitle"))}">
             <span class="brand-mark" aria-hidden="true">P</span>
@@ -5356,6 +5467,8 @@ template() {
           </div>
           <div class="interaction-panel-footer" data-role="interaction-wizard-footer"></div>
         </aside>
+
+        <div class="interaction-guidance" data-role="interaction-guidance" data-step="0" role="status" aria-live="polite" hidden></div>
 
         <div class="interaction-preview-modal" data-role="interaction-preview-modal" hidden>
           <div class="interaction-preview-dialog" role="dialog" aria-modal="true" aria-label="${escapeAttr(this.t("interactionPreviewMode"))}">
@@ -9320,9 +9433,11 @@ findSourceTagAttribute(startTag, name) {
           index += 1;
         }
         const attrName = startTag.slice(start, index);
+        const nameEnd = index;
         while (index < startTag.length && /\s/.test(startTag[index])) {
           index += 1;
         }
+        let end = nameEnd;
         if (startTag[index] === "=") {
           index += 1;
           while (index < startTag.length && /\s/.test(startTag[index])) {
@@ -9341,9 +9456,9 @@ findSourceTagAttribute(startTag, name) {
               index += 1;
             }
           }
+          end = index;
         }
 
-        const end = index;
         if (attrName.toLowerCase() === wanted) {
           let removeStart = start;
           while (removeStart > 0 && /\s/.test(startTag[removeStart - 1])) {
@@ -11263,6 +11378,7 @@ chooseInteractionWizardAction(action) {
       this.clearSelection?.();
       this.refreshInteractionPanel();
       this.renderBoxes?.();
+      this.toast(this.t("interactionGuidanceTriggerToast"));
     },
 
 interactionActionNeedsTarget(action = this.interactionWizardAction) {
@@ -11287,6 +11403,7 @@ handleInteractionCanvasSelection(item) {
       if (!nodeId) {
         return;
       }
+      let guidanceToast = "";
       if (this.interactionWizardStep === 2) {
         if (this.isSequenceStepNode(nodeId)) {
           this.toast(this.t("interactionTriggerSequenceConflict"));
@@ -11295,6 +11412,7 @@ handleInteractionCanvasSelection(item) {
         this.pendingInteractionTriggerNodeId = nodeId;
         this.interactionWizardTargetNodeId = "";
         this.interactionWizardStep = 3;
+        guidanceToast = "interactionGuidanceTargetToast";
       } else if (this.interactionWizardStep === 3 && this.interactionActionNeedsTarget()) {
         if (nodeId === this.pendingInteractionTriggerNodeId) {
           this.toast(this.t("interactionSameTarget"));
@@ -11302,9 +11420,13 @@ handleInteractionCanvasSelection(item) {
         }
         this.interactionWizardTargetNodeId = nodeId;
         this.interactionWizardStep = 4;
+        guidanceToast = "interactionGuidanceCompleteToast";
       }
       this.refreshInteractionPanel();
       this.renderBoxes?.();
+      if (guidanceToast) {
+        this.toast(this.t(guidanceToast));
+      }
     },
 
 updateInteractionWizardControl(control, value, options = {}) {
@@ -11772,6 +11894,7 @@ captureInteractionPreviewElement(element) {
       this.interactionPreviewElementStates.set(element, {
         style: element.getAttribute("style"),
         inlineDisplay: element.style.display || "",
+        hidden: element.getAttribute("hidden"),
         ariaHidden: element.getAttribute("aria-hidden"),
         role: element.getAttribute("role"),
         tabindex: element.getAttribute("tabindex"),
@@ -11780,11 +11903,40 @@ captureInteractionPreviewElement(element) {
       });
     },
 
-restoreInteractionPreviewAttribute(element, name, value) {
+    restoreInteractionPreviewAttribute(element, name, value) {
       if (value == null) {
         element.removeAttribute(name);
       } else {
         element.setAttribute(name, value);
+      }
+    },
+
+interactionPreviewSessionStateKey(interaction) {
+      const actionType = String(interaction?.action?.type || "");
+      const targetId = String(interaction?.action?.targetId || "");
+      if (!interaction?.id || !targetId || !["showVisibility", "hideVisibility", "toggleVisibility"].includes(actionType)) {
+        return "";
+      }
+      return [
+        interaction.id,
+        actionType,
+        targetId,
+        interaction.initialState?.target || ""
+      ].join(":");
+    },
+
+rememberInteractionPreviewSessionState() {
+      this.interactionPreviewSessionStates = this.interactionPreviewSessionStates || new Map();
+      for (const interaction of this.interactions || []) {
+        const key = this.interactionPreviewSessionStateKey(interaction);
+        const target = this.interactionElement(interaction?.action?.targetId);
+        if (!key || !target) {
+          continue;
+        }
+        this.interactionPreviewSessionStates.set(
+          key,
+          !target.hasAttribute("data-hsm-interaction-preview-hidden")
+        );
       }
     },
 
@@ -11801,6 +11953,7 @@ previewSetVisible(element, visible) {
           element.style.removeProperty("display");
         }
         element.removeAttribute("data-hsm-interaction-preview-hidden");
+        element.removeAttribute("hidden");
         element.removeAttribute("aria-hidden");
       } else {
         element.style.display = "none";
@@ -11859,6 +12012,12 @@ prepareInteractionPreviewState() {
           if (interaction.initialState?.target === "hidden") {
             this.previewSetVisible(target, false);
           }
+          const rememberedVisibility = this.interactionPreviewSessionStates?.get(
+            this.interactionPreviewSessionStateKey(interaction)
+          );
+          if (typeof rememberedVisibility === "boolean") {
+            this.previewSetVisible(target, rememberedVisibility);
+          }
         }
       }
 
@@ -11889,6 +12048,7 @@ restoreInteractionPreviewState() {
           element.setAttribute("style", state.style);
         }
         this.restoreInteractionPreviewAttribute(element, "aria-hidden", state.ariaHidden);
+        this.restoreInteractionPreviewAttribute(element, "hidden", state.hidden);
         this.restoreInteractionPreviewAttribute(element, "role", state.role);
         this.restoreInteractionPreviewAttribute(element, "tabindex", state.tabindex);
         this.restoreInteractionPreviewAttribute(element, "aria-controls", state.ariaControls);
@@ -11949,6 +12109,7 @@ stopInteractionPreview(options = {}) {
       }
       const returnToEditor = options.returnToEditor !== false;
       const returnToInteractionMode = returnToEditor && this.interactionPreviewReturnToMode !== false;
+      this.rememberInteractionPreviewSessionState();
       this.restoreInteractionPreviewState();
       this.interactionPreviewActive = false;
       this.showBoxes = this.interactionPreviewPreviousShowBoxes !== false;
@@ -12473,6 +12634,25 @@ interactionWizardSelectionSummaryMarkup() {
       `;
     },
 
+interactionSelectionGuidanceMarkup() {
+      if (this.interactionWizardKind !== "click") {
+        return "";
+      }
+      if (this.interactionWizardStep === 2) {
+        return `
+          <strong>${escapeHtml(this.t("interactionGuidanceTriggerTitle"))}</strong>
+          <span>${escapeHtml(this.t("interactionGuidanceTriggerHelp"))}</span>
+        `;
+      }
+      if (this.interactionWizardStep === 3 && this.interactionActionNeedsTarget()) {
+        return `
+          <strong>${escapeHtml(this.t("interactionGuidanceTargetTitle"))}</strong>
+          <span>${escapeHtml(this.t("interactionGuidanceTargetHelp"))}</span>
+        `;
+      }
+      return "";
+    },
+
 interactionWizardBodyMarkup() {
       const step = this.interactionWizardStep || 1;
       if (step === 1) {
@@ -12605,15 +12785,26 @@ refreshInteractionWizard() {
       const body = this.shadow?.querySelector('[data-role="interaction-wizard-body"]');
       const footer = this.shadow?.querySelector('[data-role="interaction-wizard-footer"]');
       const step = this.shadow?.querySelector('[data-role="interaction-wizard-step"]');
+      const guidance = this.shadow?.querySelector('[data-role="interaction-guidance"]');
       const isHome = !this.interactionWizardKind;
       const isClick = this.interactionWizardKind === "click";
       const isSequence = this.interactionWizardKind === "sequence";
+      const guidanceMarkup = isClick ? this.interactionSelectionGuidanceMarkup() : "";
+      const selectionStep = guidanceMarkup ? String(this.interactionWizardStep) : "0";
       if (home) home.hidden = !isHome;
       if (wizard) wizard.hidden = !isClick;
       if (sequence) sequence.hidden = !isSequence;
       if (records) records.hidden = !isHome;
       if (body && isClick) body.innerHTML = this.interactionWizardBodyMarkup();
       if (footer) footer.innerHTML = this.interactionWizardFooterMarkup();
+      if (guidance) {
+        guidance.hidden = !guidanceMarkup;
+        guidance.dataset.step = selectionStep;
+        guidance.innerHTML = guidanceMarkup;
+      }
+      if (this.shell) {
+        this.shell.dataset.interactionSelectionStep = selectionStep;
+      }
       if (step && isClick) {
         step.textContent = this.interactionWizardStepText();
         step.style.setProperty("--wizard-progress", `${Math.max(25, Math.min(100, this.interactionWizardStep * 25))}%`);
@@ -12797,6 +12988,7 @@ refreshInteractionPanel() {
       this.interactionPreviewActive = false;
       this.interactionPreviewReturnToMode = true;
       this.interactionPreviewElementStates = new Map();
+      this.interactionPreviewSessionStates = new Map();
       this.interactionPreviewSequenceEntries = [];
       this.interactionPreviewSequenceIndex = 0;
       this.interactionPreviewModalClose = null;
