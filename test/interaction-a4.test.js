@@ -332,6 +332,7 @@ test("A4 网址跳转完整生命周期", async (t) => {
         await independentPage.locator("#new-window-trigger").click();
         const popup = await popupPromise;
         collectErrors(popup);
+        await popup.waitForURL("https://teacher.example.test/new-window");
         await popup.waitForLoadState("domcontentloaded");
         assert.equal(popup.url(), "https://teacher.example.test/new-window");
         assert.equal(await popup.locator("#opened-target").textContent(), "/new-window");

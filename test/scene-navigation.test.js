@@ -29,15 +29,54 @@ async function clickBreadcrumb(page, label) {
   await page.mouse.click(center.x, center.y);
 }
 
-async function clickSceneTreeNode(page, sceneId) {
-  const center = await page.evaluate((id) => {
-    const button = Array.from(document.querySelectorAll("[data-hsm-open-scene]"))
-      .find((candidate) => candidate.getAttribute("data-hsm-open-scene") === id);
-    if (!button) throw new Error(`找不到场景树节点：${id}`);
-    const rect = button.getBoundingClientRect();
-    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-  }, sceneId);
-  await page.mouse.click(center.x, center.y);
+async function clickSceneTreeNode(page, sceneId, { expectEntry = true } = {}) {
+  const sceneNodes = page.locator("[data-hsm-open-scene]");
+  const count = await sceneNodes.count();
+  let targetNode = null;
+  for (let index = 0; index < count; index += 1) {
+    const candidate = sceneNodes.nth(index);
+    if (await candidate.getAttribute("data-hsm-open-scene") === sceneId) {
+      targetNode = candidate;
+      break;
+    }
+  }
+  if (!targetNode) throw new Error(`找不到场景树节点：${sceneId}`);
+
+  await targetNode.scrollIntoViewIfNeeded();
+  await targetNode.click();
+  const waitForOutcome = async (timeout) => {
+    try {
+      const result = await page.waitForFunction((id) => {
+      const state = window.__htmlSlideMenderBootstrap?.editor?.sceneNavigationStack?.at(-1);
+        if (state?.scene?.id === id && state.target?.closest?.("[data-hsm-scene-content]")) {
+          return "entered";
+        }
+        return document.querySelector("[data-hsm-scene-message]")?.textContent ? "rejected" : "";
+      }, sceneId, { timeout });
+      return await result.jsonValue();
+    } catch (_error) {
+      return "";
+    }
+  };
+
+  let outcome = await waitForOutcome(2500);
+  if (!outcome) {
+    await targetNode.click();
+    outcome = await waitForOutcome(5000);
+  }
+  const expectedOutcome = expectEntry ? "entered" : "rejected";
+  if (outcome === expectedOutcome) return;
+
+  const diagnostics = await page.evaluate(() => {
+    const editor = window.__htmlSlideMenderBootstrap?.editor;
+    return {
+      activeSceneIds: (editor?.sceneNavigationStack || []).map((state) => state.scene?.id || ""),
+      visibleSceneId: editor?.sceneNavigationStack?.at(-1)?.scene?.id || "",
+      sceneContentChildId: document.querySelector("[data-hsm-scene-content]")?.firstElementChild?.id || "",
+      message: document.querySelector("[data-hsm-scene-message]")?.textContent || ""
+    };
+  });
+  throw new Error(`场景树节点结果不符合预期：${sceneId}；期望：${expectedOutcome}；实际：${outcome || "无响应"}；状态：${JSON.stringify(diagnostics)}`);
 }
 
 async function clickEditorItem(page, itemId) {
@@ -1274,7 +1313,7 @@ test("场景目标缺失时保持当前页面并给出人话提示", async () =>
   try {
     directory = await openNestedSceneEditor(page);
     await page.evaluate(() => document.querySelector("#detail").remove());
-    await clickSceneTreeNode(page, "scene:modal:p001:inner");
+    await clickSceneTreeNode(page, "scene:modal:p001:inner", { expectEntry: false });
     await page.waitForFunction(() => document.querySelector("[data-hsm-scene-message]")?.textContent.length > 0);
     assert.equal(
       await page.locator("[data-hsm-scene-message]").textContent(),
@@ -1299,7 +1338,7 @@ test("场景目标重复时不猜测目标也不改变当前画面", async () =>
       const duplicate = document.querySelector("#detail").cloneNode(true);
       document.body.append(duplicate);
     });
-    await clickSceneTreeNode(page, "scene:modal:p001:inner");
+    await clickSceneTreeNode(page, "scene:modal:p001:inner", { expectEntry: false });
     await page.waitForFunction(() => document.querySelector("[data-hsm-scene-message]")?.textContent.length > 0);
     assert.equal(
       await page.locator("[data-hsm-scene-message]").textContent(),

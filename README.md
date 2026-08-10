@@ -9,7 +9,7 @@ HTML Mender 是一个面向教师课件的本地 HTML 编辑器，提供接近�
 - 管理多页课件，支持新增、复制、排序、删除和恢复页面。
 - 每页独立保存版本，可查看、恢复和导出历史版本。
 - 完整导出 HTML 或 ZIP，并保留项目中的 CSS、JavaScript 和媒体资源。
-- 支持 Windows 安装版和免安装版，两种版本的数据都保存在用户自己的工作区中。
+- 支持 macOS 桌面版、Windows 安装版和免安装版，各版本的数据都保存在用户自己的工作区中。
 
 ## 本地运行
 
@@ -26,6 +26,19 @@ npm start
 ```text
 http://127.0.0.1:8787/
 ```
+
+## macOS 桌面版
+
+Apple 芯片 Mac 可构建应用程序和安装映像：
+
+```bash
+npm run dist:mac
+```
+
+构建结果位于 `release` 目录：
+
+- `mac-arm64/HTML Mender.app`：可直接运行的应用程序。
+- `HTML-Mender-版本号-macOS-arm64.dmg`：便于安装和分发的磁盘映像。
 
 ## Windows 桌面版
 
@@ -50,6 +63,7 @@ npm run dist:win
 
 ## 更多说明
 
+- [macOS 使用与构建说明](README_MACOS.md)
 - [Windows 使用与构建说明](README_WINDOWS.md)
 - [页面管理设计](docs/page-management-design.md)
 - [教学交互能力设计](docs/html-teaching-interaction-capability-design.md)

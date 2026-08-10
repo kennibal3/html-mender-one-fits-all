@@ -328,8 +328,19 @@ test("task export returns HTML for one page and ZIP for multiple pages", async (
     const multiple = await createTask("多页导出", ["第一页", "第二页"]);
     const multipleExport = await fetch(`${runtime.url}/api/projects/${multiple.project.id}/export`);
     assert.match(multipleExport.headers.get("content-type"), /application\/zip/);
-    const bytes = new Uint8Array(await multipleExport.arrayBuffer());
+    const exportBuffer = Buffer.from(await multipleExport.arrayBuffer());
+    const bytes = new Uint8Array(exportBuffer);
     assert.equal(new TextDecoder().decode(bytes.slice(0, 2)), "PK");
+    const exportedZip = await unzipper.Open.buffer(exportBuffer);
+    const exportedPaths = exportedZip.files
+      .filter((entry) => entry.type === "File")
+      .map((entry) => entry.path)
+      .sort();
+    assert.deepEqual(
+      exportedPaths,
+      multiple.project.pages.map((page) => page.sourceRelativePath).sort(),
+      "多页导出只能包含成品页面，不能带出内部 .editable.html 工作副本"
+    );
   } finally {
     await runtime.close();
     await rm(dataDir, { recursive: true, force: true });

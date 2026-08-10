@@ -397,7 +397,11 @@ app.get("/api/projects/:id/export", async (req, res, next) => {
       return;
     }
     const archivePath = resolve(archiveDir, `html-mender-task-${project.id}.zip`);
-    await zipProjectDirectory({ directoryPath: project.outputDir, archivePath });
+    await zipProjectDirectory({
+      directoryPath: project.outputDir,
+      archivePath,
+      excludeRelativePaths: (project.pages || []).map((page) => page.editRelativePath).filter(Boolean)
+    });
     res.download(archivePath, `${project.downloadName}.zip`);
   } catch (error) {
     next(error);

@@ -350,9 +350,11 @@ export async function zipOutputs({ archivePath, files }) {
   });
 }
 
-export async function zipProjectDirectory({ directoryPath, archivePath }) {
+export async function zipProjectDirectory({ directoryPath, archivePath, excludeRelativePaths = [] }) {
   await mkdir(dirname(archivePath), { recursive: true });
-  const files = await listProjectFiles(directoryPath);
+  const excludedPaths = new Set(excludeRelativePaths.map(normalizeProjectRelativePath));
+  const files = (await listProjectFiles(directoryPath))
+    .filter((file) => !excludedPaths.has(file.relativePath));
 
   return new Promise((resolvePromise, reject) => {
     const output = createWriteStream(archivePath);
