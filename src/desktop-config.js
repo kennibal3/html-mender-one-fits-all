@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-export const DESKTOP_APP_NAME = "HTML Mender";
+export const DESKTOP_APP_NAME = "HTML课件互动编辑系统";
 export const DESKTOP_WORKSPACE_NAME = "HTML Mender 工作区";
 
 export function resolveDesktopWorkspace({ desktopPath, env = process.env }) {

@@ -321,7 +321,7 @@
     "zh-CN": {
       ready: "正在识别当前页面...",
       collapseTitle: "收起编辑器",
-      appName: "HTML Mender",
+      appName: "HTML课件互动编辑系统",
       undo: "撤销",
       redo: "重做",
       rescan: "重新识别",
@@ -585,7 +585,7 @@
     en: {
       ready: "Scanning current view...",
       collapseTitle: "Collapse editor",
-      appName: "HTML Mender",
+      appName: "HTML课件互动编辑系统",
       undo: "Undo",
       redo: "Redo",
       rescan: "Rescan",

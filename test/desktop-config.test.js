@@ -29,8 +29,8 @@ test("desktop workspace accepts an explicit data directory", async () => {
   );
 });
 
-test("desktop window title is stable for Windows shortcuts", async () => {
+test("desktop window uses the registered product name without migrating the legacy workspace", async () => {
   const { DESKTOP_APP_NAME } = await loadDesktopConfig();
 
-  assert.equal(DESKTOP_APP_NAME, "HTML Mender");
+  assert.equal(DESKTOP_APP_NAME, "HTML课件互动编辑系统");
 });

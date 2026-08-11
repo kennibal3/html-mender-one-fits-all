@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">HTML课件互动编辑系统小尺寸图标</title>
+  <desc id="desc">纯蓝圆角背景中的白色课件画布、代码尖括号与青绿互动节点</desc>
+  <rect width="512" height="512" rx="112" fill="#176BFF"/>
+  <rect x="92" y="106" width="328" height="300" rx="52" fill="#F7FBFF"/>
+  <path d="M213 194L165 256L213 318" fill="none" stroke="#176BFF" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M299 194L347 256L299 318" fill="none" stroke="#176BFF" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M174 282C208 282 218 230 256 230C294 230 304 282 338 282" fill="none" stroke="#13B8A6" stroke-width="15" stroke-linecap="round"/>
+  <circle cx="174" cy="282" r="19" fill="#13B8A6" stroke="#F7FBFF" stroke-width="8"/>
+  <circle cx="256" cy="230" r="22" fill="#13B8A6" stroke="#F7FBFF" stroke-width="8"/>
+  <circle cx="338" cy="282" r="19" fill="#13B8A6" stroke="#F7FBFF" stroke-width="8"/>
+</svg>

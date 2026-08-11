@@ -5,7 +5,16 @@ import test from "node:test";
 test("workspace UI exposes one unified upload entry, recent tasks, versions and native export", async () => {
   const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
   const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  const editorRuntime = await readFile(
+    new URL("../vendor/html-slide-mender/assets/html-slide-mender-runtime.js", import.meta.url),
+    "utf8"
+  );
+  const server = await readFile(new URL("../src/server.js", import.meta.url), "utf8");
 
+  assert.match(html, /<title>HTML课件互动编辑系统 - 任务工作台<\/title>/);
+  assert.match(html, /<h1[^>]*>HTML课件互动编辑系统<\/h1>/);
+  assert.match(editorRuntime, /appName: "HTML课件互动编辑系统"/);
+  assert.match(server, /taskName \|\| "HTML课件互动编辑系统"/);
   assert.match(html, /<form\b[^>]*id="upload-form"[^>]*\bnovalidate\b/);
   assert.match(html, /id="task-name"/);
   assert.match(html, /id="asset-input"/);

@@ -1,13 +1,13 @@
-# HTML Mender Windows 桌面版
+# HTML课件互动编辑系统 Windows 桌面版
 
 ## 给同事使用
 
 每次发布会提供两个文件：
 
-- `HTML-Mender-Setup-版本号.exe`：安装版，适合长期使用。
-- `HTML-Mender-Portable-版本号.exe`：免安装版，双击即可运行。
+- `HTML课件互动编辑系统-Setup-版本号.exe`：安装版，适合长期使用。
+- `HTML课件互动编辑系统-Portable-版本号.exe`：免安装版，双击即可运行。
 
-两个版本都会在当前用户桌面创建 `HTML Mender 工作区`。上传项目、历史版本和应用内部文件保存在该目录中；通过页面下载的 ZIP 或 HTML 保存在其中的 `导出文件`。
+两个版本都会继续使用当前用户桌面的 `HTML Mender 工作区`。上传项目、历史版本和应用内部文件保存在该目录中；通过页面下载的 ZIP 或 HTML 保存在其中的 `导出文件`。该目录名称为兼容早期版本而保留。
 
 ## 任务工作台
 
@@ -24,7 +24,7 @@
 1. 将本项目上传到 GitHub 仓库。
 2. 打开仓库的 `Actions` 页面。
 3. 选择 `Build Windows desktop app`，点击 `Run workflow`。
-4. 构建完成后，在该次运行底部下载 `HTML-Mender-Windows`。
+4. 构建完成后，在该次运行底部下载 `HTML课件互动编辑系统-Windows`。
 5. 解压后即可获得安装版和免安装版 EXE。
 
 发布 `v0.1.0` 这类版本标签时也会自动构建。

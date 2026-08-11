@@ -1015,7 +1015,7 @@ async function finalizePageManagementChange(project) {
 }
 
 function createBlankCoursewareHtml(taskName = "") {
-  const safeTitle = escapeHtmlText(`${taskName || "HTML Mender"} - 空白课件页`);
+  const safeTitle = escapeHtmlText(`${taskName || "HTML课件互动编辑系统"} - 空白课件页`);
   return `<!doctype html>
 <html lang="zh-CN">
 <head>

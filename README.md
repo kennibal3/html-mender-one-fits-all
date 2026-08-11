@@ -1,6 +1,6 @@
-# HTML Mender
+# HTML课件互动编辑系统 V1.0
 
-HTML Mender 是一个面向教师课件的本地 HTML 编辑器，提供接近演示文稿软件的可视化编辑体验。它支持单个 HTML、多个 HTML 和完整 ZIP 项目包，并保留页面资源、页面版本和项目工作台记录。
+HTML课件互动编辑系统是一个面向教师课件的本地 HTML 编辑器，提供接近演示文稿软件的可视化编辑体验。它支持单个 HTML、多个 HTML 和完整 ZIP 项目包，并保留页面资源、页面版本和项目工作台记录。
 
 ## 主要功能
 
@@ -37,8 +37,8 @@ npm run dist:mac
 
 构建结果位于 `release` 目录：
 
-- `mac-arm64/HTML Mender.app`：可直接运行的应用程序。
-- `HTML-Mender-版本号-macOS-arm64.dmg`：便于安装和分发的磁盘映像。
+- `mac-arm64/HTML课件互动编辑系统.app`：可直接运行的应用程序。
+- `HTML课件互动编辑系统-版本号-macOS-arm64.dmg`：便于安装和分发的磁盘映像。
 
 ## Windows 桌面版
 
@@ -50,14 +50,14 @@ npm run dist:win
 
 构建结果位于 `release` 目录：
 
-- `HTML-Mender-Setup-版本号.exe`：安装版。
-- `HTML-Mender-Portable-版本号.exe`：免安装版。
+- `HTML课件互动编辑系统-Setup-版本号.exe`：安装版。
+- `HTML课件互动编辑系统-Portable-版本号.exe`：免安装版。
 
-也可以在 GitHub 仓库的 **Actions** 页面运行 **Build Windows desktop app**，完成后下载 `HTML-Mender-Windows` 构建产物。
+也可以在 GitHub 仓库的 **Actions** 页面运行 **Build Windows desktop app**，完成后下载 `HTML课件互动编辑系统-Windows` 构建产物。
 
 ## 数据与隐私
 
-用户上传的课件、历史版本、导出文件和工作台数据不会提交到本仓库。桌面版默认将这些内容保存在当前用户桌面的 `HTML Mender 工作区` 中。
+用户上传的课件、历史版本、导出文件和工作台数据不会提交到本仓库。为兼容既有任务，桌面版继续将这些内容保存在当前用户桌面的 `HTML Mender 工作区` 中；升级软件不会迁移或清空该目录。
 
 请勿直接分享个人工作区；给同事使用时，只分发安装版或免安装版程序。
 

@@ -1,6 +1,6 @@
 {
   "name": "html-mender-local-app",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "Local HTML and ZIP courseware editor with page version history.",
   "author": "HTML Mender",
   "private": true,
@@ -28,7 +28,7 @@
   },
   "build": {
     "appId": "cn.htmlmender.desktop",
-    "productName": "HTML Mender",
+    "productName": "HTML课件互动编辑系统",
     "electronDist": "node_modules/electron/dist",
     "asar": true,
     "asarUnpack": [
@@ -49,7 +49,7 @@
       "!server.log"
     ],
     "mac": {
-      "icon": "build/icon.png",
+      "icon": "build/icon.icns",
       "category": "public.app-category.education",
       "identity": null,
       "target": [
@@ -60,10 +60,10 @@
       ]
     },
     "dmg": {
-      "artifactName": "HTML-Mender-${version}-macOS-arm64.${ext}"
+      "artifactName": "HTML课件互动编辑系统-${version}-macOS-arm64.${ext}"
     },
     "win": {
-      "icon": "build/icon.png",
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -76,15 +76,15 @@
       ]
     },
     "nsis": {
-      "artifactName": "HTML-Mender-Setup-${version}.${ext}",
+      "artifactName": "HTML课件互动编辑系统-Setup-${version}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
-      "shortcutName": "HTML Mender"
+      "shortcutName": "HTML课件互动编辑系统"
     },
     "portable": {
-      "artifactName": "HTML-Mender-Portable-${version}.${ext}",
+      "artifactName": "HTML课件互动编辑系统-Portable-${version}.${ext}",
       "requestExecutionLevel": "user"
     }
   }
